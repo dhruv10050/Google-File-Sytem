@@ -1,0 +1,19 @@
+# Private: credentials, paper, and shared planning notes. Never commit.
+context/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Build + runtime artifacts
+/bin/
+/dist/
+*.test
+*.out
+/tmp/
+/data/
+
+# Benchmark scratch (raw CSVs we keep live under bench/results/)
+bench/scratch/
+__pycache__/
