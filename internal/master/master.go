@@ -40,6 +40,12 @@ type Config struct {
 	MaxClonesPerServer      int
 	MaxClonesCluster        int
 
+	// Rebalancing (§4.3): every RebalanceInterval (negative disables),
+	// trim excess replicas and move up to MaxRebalanceMoves replicas at a
+	// time from the most- to the least-loaded chunkservers.
+	RebalanceInterval time.Duration
+	MaxRebalanceMoves int
+
 	CheckpointEveryRecords int
 
 	// Garbage collection (§4.4): deleted files stay under a hidden name for
@@ -78,6 +84,12 @@ func (c *Config) setDefaults() {
 	if c.RereplicationDelay == 0 {
 		c.RereplicationDelay = c.DeadAfter + 2*c.HeartbeatInterval
 	}
+	if c.RebalanceInterval == 0 {
+		c.RebalanceInterval = 30 * time.Second
+	}
+	if c.MaxRebalanceMoves == 0 {
+		c.MaxRebalanceMoves = 2
+	}
 	if c.MaxClonesPerServer == 0 {
 		c.MaxClonesPerServer = 4
 	}
@@ -115,6 +127,14 @@ type serverInfo struct {
 	chunks     map[common.ChunkHandle]bool
 	creates    []time.Time // recent chunk creations, for placement (§4.2)
 	clonesBusy int
+	movesIn    int // rebalancing moves in flight to / from this server
+	movesOut   int
+
+	// Replicas the master removed (trimmed or moved away), with the time
+	// the server confirmed the deletion (zero until then). Reports of them
+	// are ignored for a quarantine period: a heartbeat built before the
+	// deletion must not resurrect a replica that no longer exists.
+	drop map[common.ChunkHandle]time.Time
 }
 
 type Master struct {
@@ -142,6 +162,8 @@ type Master struct {
 	startedAt  time.Time
 	clonesBusy atomic.Int64
 	clonesDone atomic.Int64
+	movesBusy  atomic.Int64
+	movesDone  atomic.Int64
 
 	grpc   *grpc.Server
 	lis    net.Listener
@@ -573,6 +595,7 @@ func (m *Master) ClusterStatus(ctx context.Context, _ *pb.Empty) (*pb.ClusterSta
 		NumFiles: int64(len(m.st.Files)), NumChunks: int64(len(m.st.Chunks)),
 		AppliedLsn: m.st.LSN, IsShadow: m.cfg.Shadow,
 		ClonesInFlight: m.clonesBusy.Load(), ClonesCompleted: m.clonesDone.Load(),
+		MovesInFlight: m.movesBusy.Load(), MovesCompleted: m.movesDone.Load(),
 	}
 	for p := range m.st.Files {
 		if InTrash(p) {

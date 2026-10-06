@@ -193,6 +193,8 @@ message ClusterStatusResponse {
   uint64 applied_lsn = 8;
   bool is_shadow = 9;
   int64 deleted_files = 10; // hidden files awaiting garbage collection
+  int64 moves_in_flight = 11; // rebalancing replica moves
+  int64 moves_completed = 12;
 }
 
 // ───────────────────────── Chunkserver ─────────────────────────

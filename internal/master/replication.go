@@ -57,6 +57,7 @@ func (m *Master) placeLocked(n int, exclude map[string]bool) []string {
 func (m *Master) replicationLoop() {
 	t := time.NewTicker(m.cfg.ReplicationScanInterval)
 	defer t.Stop()
+	var lastRebalance time.Time
 	for {
 		select {
 		case <-m.ctx.Done():
@@ -66,7 +67,10 @@ func (m *Master) replicationLoop() {
 		if time.Since(m.startedAt) < m.cfg.RereplicationDelay {
 			continue // chunkservers are still reporting in after a restart
 		}
-		m.replicationScan()
+		if m.replicationScan() == 0 && m.cfg.RebalanceInterval > 0 && time.Since(lastRebalance) >= m.cfg.RebalanceInterval {
+			lastRebalance = time.Now()
+			m.rebalanceScan()
+		}
 	}
 }
 
@@ -76,7 +80,9 @@ type cloneTask struct {
 	live    []string
 }
 
-func (m *Master) replicationScan() {
+// replicationScan starts clones for under-replicated chunks and returns
+// how many chunks are below their goal.
+func (m *Master) replicationScan() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var tasks []cloneTask
@@ -103,7 +109,7 @@ func (m *Master) replicationScan() {
 	limit := m.cfg.MaxClonesPerServer
 	for _, t := range tasks {
 		if m.cfg.MaxClonesCluster > 0 && m.clonesBusy.Load() >= int64(m.cfg.MaxClonesCluster) {
-			return
+			break
 		}
 		var src *serverInfo
 		for _, id := range t.live {
@@ -123,7 +129,7 @@ func (m *Master) replicationScan() {
 			exclude[id] = true
 		}
 		for id, s := range m.servers {
-			if s.clonesBusy >= limit {
+			if s.clonesBusy >= limit || m.droppedLocked(s, t.h) {
 				exclude[id] = true
 			}
 		}
@@ -136,17 +142,28 @@ func (m *Master) replicationScan() {
 		src.clonesBusy++
 		d.clonesBusy++
 		m.clonesBusy.Add(1)
-		go m.clone(t.h, src.id, d.id)
+		go m.clone(t.h, src.id, d.id, false)
 	}
+	return len(tasks)
 }
 
-// clone copies chunk h from src to dst. It holds the chunk's lock for the
+// clone copies chunk h from src to dst; with move set it then removes the
+// replica on src (rebalancing). It holds the chunk's lock for the
 // whole copy so no new lease can be granted, and first revokes any current
 // lease, so the copy can never miss a mutation. If the primary cannot be
 // reached to revoke, the version is bumped instead, which fences it.
-func (m *Master) clone(h common.ChunkHandle, srcID, dstID string) {
+func (m *Master) clone(h common.ChunkHandle, srcID, dstID string, move bool) {
 	defer func() {
 		m.mu.Lock()
+		if move {
+			if s := m.servers[srcID]; s != nil {
+				s.movesOut--
+			}
+			if s := m.servers[dstID]; s != nil {
+				s.movesIn--
+			}
+			m.movesBusy.Add(-1)
+		}
 		if cs := m.soft[h]; cs != nil {
 			cs.cloning = false
 		}
@@ -203,10 +220,19 @@ func (m *Master) clone(h common.ChunkHandle, srcID, dstID string) {
 		return
 	}
 	m.mu.Lock()
+	added := false
 	if meta := m.st.Chunks[h]; meta != nil && meta.Version == version && m.servers[dstID] == dst {
 		cs.locs[dstID] = true
 		delete(cs.corruptOn, dstID)
 		dst.chunks[h] = true
+		added = true
+	}
+	if move && added {
+		// Still under cs.mu: no lease can include the replica being removed.
+		if s := m.servers[srcID]; s != nil && cs.locs[srcID] {
+			m.dropReplicaLocked(h, cs, s)
+			m.movesDone.Add(1)
+		}
 	}
 	m.mu.Unlock()
 	m.clonesDone.Add(1)

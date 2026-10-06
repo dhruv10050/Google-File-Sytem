@@ -264,8 +264,8 @@ func run(c *client.Client, cmd string, args []string) error {
 		if st.IsShadow {
 			role = "shadow"
 		}
-		fmt.Printf("master: %s (applied lsn %d)\nfiles: %d (%d deleted, awaiting GC)  chunks: %d  under-replicated: %d\nclones: %d in flight, %d completed\nreplica histogram (index = live replicas): %v\n\n",
-			role, st.AppliedLsn, st.NumFiles, st.DeletedFiles, st.NumChunks, st.UnderReplicated, st.ClonesInFlight, st.ClonesCompleted, st.ReplicaHistogram)
+		fmt.Printf("master: %s (applied lsn %d)\nfiles: %d (%d deleted, awaiting GC)  chunks: %d  under-replicated: %d\nclones: %d in flight, %d completed (rebalancing moves: %d in flight, %d completed)\nreplica histogram (index = live replicas): %v\n\n",
+			role, st.AppliedLsn, st.NumFiles, st.DeletedFiles, st.NumChunks, st.UnderReplicated, st.ClonesInFlight, st.ClonesCompleted, st.MovesInFlight, st.MovesCompleted, st.ReplicaHistogram)
 		w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
 		fmt.Fprintln(w, "SERVER\tADDRESS\tCHUNKS\tUSED\tFREE\tLAST HB")
 		for _, s := range st.Servers {

@@ -83,7 +83,7 @@ cat "$OUT/raw/disk.txt"
 # ── GFS ──────────────────────────────────────────────────────────────────
 # Written files are deleted after each run; reclaim their space at once
 # instead of keeping them under /.deleted for 3 days (§4.4).
-start_cluster --trash-retention 0
+start_cluster --trash-retention 0 --rebalance-interval 0
 
 log "writing read dataset: $DS_FILES x $DS_BYTES"
 [[ " $KINDS " == *" read "* ]] || DS_BYTES=64M # only used for the final check

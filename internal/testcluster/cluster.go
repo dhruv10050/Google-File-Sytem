@@ -33,6 +33,8 @@ type Options struct {
 	CheckpointEveryRecords int
 	TrashRetention         time.Duration // 0 = master default (3 days)
 	GCInterval             time.Duration
+	RebalanceInterval      time.Duration // 0 = disabled (unlike the master default)
+	MaxRebalanceMoves      int
 	Verbose                bool // log to stderr instead of discarding
 }
 
@@ -104,12 +106,17 @@ func (c *Cluster) masterConfig(shadow bool) master.Config {
 	if shadow {
 		name, addr = "shadow", c.ShadowAddr
 	}
+	rebalance := c.opt.RebalanceInterval
+	if rebalance == 0 {
+		rebalance = -1 // keep replica placement predictable in other tests
+	}
 	return master.Config{
 		ListenAddr: addr, Dir: filepath.Join(c.dir, name), Logger: c.log.With("c", name),
 		ChunkSize: c.opt.ChunkSize, DefaultReplication: c.opt.Replication,
 		LeaseDuration: c.opt.Lease, HeartbeatInterval: c.opt.Heartbeat,
 		CheckpointEveryRecords: c.opt.CheckpointEveryRecords,
 		TrashRetention:         c.opt.TrashRetention, GCInterval: c.opt.GCInterval,
+		RebalanceInterval: rebalance, MaxRebalanceMoves: c.opt.MaxRebalanceMoves,
 		Shadow: shadow, PrimaryAddr: c.MasterAddr,
 	}
 }
@@ -173,6 +180,16 @@ func (c *Cluster) StartChunkServer(i int) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	c.t.Fatalf("chunkserver %d start: %v", i, err)
+}
+
+// AddChunkServer starts a new, empty chunkserver and returns its index.
+func (c *Cluster) AddChunkServer() int {
+	c.t.Helper()
+	c.CS = append(c.CS, nil)
+	c.CSAddr = append(c.CSAddr, freeAddr(c.t))
+	i := len(c.CS) - 1
+	c.StartChunkServer(i)
+	return i
 }
 
 // StopChunkServer simulates a chunkserver crash.

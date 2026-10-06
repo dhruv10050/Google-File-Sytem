@@ -19,7 +19,7 @@ func (m *Master) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	s := &serverInfo{
 		id: req.ServerId, addr: req.Address, lastHB: time.Now(),
 		diskUsed: req.DiskUsed, diskFree: req.DiskFree,
-		chunks: map[common.ChunkHandle]bool{},
+		chunks: map[common.ChunkHandle]bool{}, drop: map[common.ChunkHandle]time.Time{},
 	}
 	m.servers[s.id] = s
 	garbage, adopt := m.processReportsLocked(s, req.Chunks)
@@ -102,6 +102,8 @@ func (m *Master) processReportsLocked(s *serverInfo, reps []*pb.ChunkReport) (ga
 			if !m.pending[h] && !m.cfg.Shadow {
 				garbage = append(garbage, r.Handle)
 			}
+		case m.droppedLocked(s, h):
+			garbage = append(garbage, r.Handle)
 		case r.Version < meta.Version:
 			if m.cfg.Shadow {
 				continue // the shadow may simply lag the primary's version bump

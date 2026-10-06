@@ -26,7 +26,7 @@ record_env
 echo "DS_FILES=$DS_FILES DS_BYTES=$DS_BYTES KILL=$KILL" >>"$OUT/env.txt"
 
 # Defaults: 1 s heartbeats, dead after 5 missed, 4 clones per server.
-start_cluster
+start_cluster --rebalance-interval 0
 
 log "writing dataset: $DS_FILES x $DS_BYTES"
 clients dataset "$WRITERS" write -masters "$MASTER" -path "/bench/ds/f{id}" -bytes "$DS_BYTES" -op 8M

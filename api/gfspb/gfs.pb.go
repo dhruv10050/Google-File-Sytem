@@ -1567,7 +1567,9 @@ type ClusterStatusResponse struct {
 	ClonesCompleted  int64   `protobuf:"varint,7,opt,name=clones_completed,json=clonesCompleted,proto3" json:"clones_completed,omitempty"`
 	AppliedLsn       uint64  `protobuf:"varint,8,opt,name=applied_lsn,json=appliedLsn,proto3" json:"applied_lsn,omitempty"`
 	IsShadow         bool    `protobuf:"varint,9,opt,name=is_shadow,json=isShadow,proto3" json:"is_shadow,omitempty"`
-	DeletedFiles     int64   `protobuf:"varint,10,opt,name=deleted_files,json=deletedFiles,proto3" json:"deleted_files,omitempty"` // hidden files awaiting garbage collection
+	DeletedFiles     int64   `protobuf:"varint,10,opt,name=deleted_files,json=deletedFiles,proto3" json:"deleted_files,omitempty"`      // hidden files awaiting garbage collection
+	MovesInFlight    int64   `protobuf:"varint,11,opt,name=moves_in_flight,json=movesInFlight,proto3" json:"moves_in_flight,omitempty"` // rebalancing replica moves
+	MovesCompleted   int64   `protobuf:"varint,12,opt,name=moves_completed,json=movesCompleted,proto3" json:"moves_completed,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -1668,6 +1670,20 @@ func (x *ClusterStatusResponse) GetIsShadow() bool {
 func (x *ClusterStatusResponse) GetDeletedFiles() int64 {
 	if x != nil {
 		return x.DeletedFiles
+	}
+	return 0
+}
+
+func (x *ClusterStatusResponse) GetMovesInFlight() int64 {
+	if x != nil {
+		return x.MovesInFlight
+	}
+	return 0
+}
+
+func (x *ClusterStatusResponse) GetMovesCompleted() int64 {
+	if x != nil {
+		return x.MovesCompleted
 	}
 	return 0
 }
@@ -3760,7 +3776,7 @@ const file_gfs_proto_rawDesc = "" +
 	"num_chunks\x18\x03 \x01(\x03R\tnumChunks\x12\x1b\n" +
 	"\tdisk_used\x18\x04 \x01(\x03R\bdiskUsed\x12\x1b\n" +
 	"\tdisk_free\x18\x05 \x01(\x03R\bdiskFree\x121\n" +
-	"\x15last_heartbeat_ms_ago\x18\x06 \x01(\x03R\x12lastHeartbeatMsAgo\"\x90\x03\n" +
+	"\x15last_heartbeat_ms_ago\x18\x06 \x01(\x03R\x12lastHeartbeatMsAgo\"\xe1\x03\n" +
 	"\x15ClusterStatusResponse\x12+\n" +
 	"\aservers\x18\x01 \x03(\v2\x11.gfs.ServerStatusR\aservers\x12\x1b\n" +
 	"\tnum_files\x18\x02 \x01(\x03R\bnumFiles\x12\x1d\n" +
@@ -3774,7 +3790,9 @@ const file_gfs_proto_rawDesc = "" +
 	"appliedLsn\x12\x1b\n" +
 	"\tis_shadow\x18\t \x01(\bR\bisShadow\x12#\n" +
 	"\rdeleted_files\x18\n" +
-	" \x01(\x03R\fdeletedFiles\"X\n" +
+	" \x01(\x03R\fdeletedFiles\x12&\n" +
+	"\x0fmoves_in_flight\x18\v \x01(\x03R\rmovesInFlight\x12'\n" +
+	"\x0fmoves_completed\x18\f \x01(\x03R\x0emovesCompleted\"X\n" +
 	"\rPushDataFrame\x12\x17\n" +
 	"\adata_id\x18\x01 \x01(\tR\x06dataId\x12\x14\n" +
 	"\x05chain\x18\x02 \x03(\tR\x05chain\x12\x18\n" +
