@@ -1,0 +1,4 @@
+job,victims,data_GB,chunks,under_replicated,hist_after_kill,clones,detect_s,rereplicate_s,total_s,clone_MBps,verified_GB,replica_reads,problems,verifiers
+103666,node05 node04,21.47,320,258,0;124;134;62,382,4.68,145.67,150.35,175.98,64.42,960,0,6
+103667,node02 node06,21.47,320,265,0;120;145;55,385,4.48,148.07,152.55,174.49,64.42,960,0,6
+103668,node03 node04,21.47,320,303,0;80;223;17,383,4.88,145.87,150.75,176.20,64.42,960,0,6

@@ -2,7 +2,7 @@
 
 A from-scratch implementation of the [Google File System](https://research.google/pubs/the-google-file-system/) (Ghemawat, Gobioff, Leung — SOSP 2003) in Go, using gRPC and Protocol Buffers. The paper is the spec: section numbers like (§4.5) in the code and below point to the part of the paper each mechanism implements.
 
-> **Status:** the system described in the paper is implemented and tested: the master with its operation log, checkpoints and shadow; chunkservers; 3-way replication; leases; heartbeats; re-replication; checksums; stale-replica detection; record append; copy-on-write snapshots; lazy garbage collection; rebalancing; namespace locking. Benchmarks on a SLURM cluster are being finalised. See [Roadmap](#roadmap).
+> **Status:** the system described in the paper is implemented and tested: the master with its operation log, checkpoints and shadow; chunkservers; 3-way replication; leases; heartbeats; re-replication; checksums; stale-replica detection; record append; copy-on-write snapshots; lazy garbage collection; rebalancing; namespace locking. It has been benchmarked on a 6-node SLURM cluster; see [Benchmarks](#benchmarks).
 
 ## Architecture
 
@@ -80,8 +80,10 @@ pkg/client/              client library
 cmd/gfs-master           master / shadow master binary
 cmd/gfs-chunkserver      chunkserver binary
 cmd/gfs                  CLI
+cmd/gfs-bench            benchmark client (read/write/append workloads, verifiers, network test)
 internal/testcluster/    in-process cluster harness + integration and failure tests
 scripts/                 local multi-process cluster and smoke test
+bench/                   SLURM benchmark jobs, analysis script, results
 ```
 
 ## Build
@@ -152,10 +154,28 @@ scripts/smoke-test.sh        # the same scenarios with real OS processes and kil
   - Rebalancing: three empty chunkservers added to a full cluster fill up to an even spread; excess replicas from a returning server are trimmed.
   - Namespace locks: which operations conflict, and 16 goroutines locking overlapping path sets without deadlock.
 
+## Benchmarks
+
+Measured on 6 nodes of a SLURM cluster: 1 master and 5 chunkservers on 1 Gb/s Ethernet, with 64 MiB chunks and 3 replicas. Aggregate throughput is the median of 3 runs. In network-only mode, clients never use a replica on their own node. Full tables, method and caveats: [bench/RESULTS.md](bench/RESULTS.md), [bench/METHODOLOGY.md](bench/METHODOLOGY.md).
+
+| Workload | 1 client | 8 clients | 1 GbE limit at 8 |
+|---|---:|---:|---:|
+| Read, 4 MiB random regions (network-only) | 110.7 MB/s | **358.2 MB/s** | 582.5 MB/s |
+| Write, 3 replicas, 8 MiB ops (network-only) | 82.1 MB/s | **157.8 MB/s** | 194.2 MB/s |
+| Write, 3 replicas, 1 MiB ops (network-only) | 50.3 MB/s | 136.2 MB/s | 194.2 MB/s |
+| Record append to one shared file, 1 MiB records | 53.4 MB/s | 84.7 MB/s | 116.5 MB/s |
+
+**Recovery:** with 20 GiB of data (320 chunks), killing 2 of the 5 chunkservers restored full 3-way replication in a median of **150.8 s** (range 150.4–152.6 s over 3 runs). Detection took 4.7 s, and re-replication of about 383 chunks ran at 176 MB/s. Afterwards, all 960 replicas were byte-for-byte identical in every run. Appends: 32,256 records were checked, with 0 missing and 0 duplicated.
+
+![throughput](bench/results/throughput.png)
+
+Reads are served from the page cache (the nodes have far more RAM than the dataset), so they measure the network and GFS rather than the disks.
+
 ## Roadmap
 
 - [x] M1–M4 core: master metadata + op log + checkpoints + shadow, chunkservers, replication, leases, heartbeats, re-replication, checksums, stale-replica detection
 - [x] Record append (§3.3) with padding and at-least-once semantics
 - [x] Copy-on-write snapshots (§3.4) with lease revocation and crash-safe refcounts
 - [x] Lazy garbage collection with hidden deleted files (§4.4), rebalancing (§4.3), namespace read/write locks (§4.1)
-- [ ] Benchmarks on a SLURM cluster: read/write/append throughput vs. number of clients, recovery time, snapshot vs. copy, metadata ops/s
+- [x] Benchmarks on a SLURM cluster: read/write/append throughput vs. number of clients, recovery time
+- [ ] Benchmarks: snapshot vs. full copy, metadata operations per second
