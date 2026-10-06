@@ -8,8 +8,10 @@
 //	gfs-bench read       -masters M -prefix /bench/ds/f -files 8 -bytes 2G -op 4M [-avoid-local] [-start-at NS]
 //	gfs-bench append     -masters M -path /bench/a/log -bytes 1G -record 1M [-avoid-local] [-start-at NS]
 //	gfs-bench scan       -masters M -path /bench/a/log
-//	gfs-bench verify     -masters M -prefix /bench/ds/f -files 8 [-all-replicas -replicas 3] [-id i -of n]
+//	gfs-bench verify     -masters M -prefix /bench/ds/f -files 8 [-content-of /bench/ds/f] [-all-replicas -replicas 3] [-id i -of n]
 //	gfs-bench watch      -masters M -expect-servers 3 [-interval 200ms] [-timeout 30m]
+//	gfs-bench meta       -masters M -op create|stat|delete -dir /bench/meta/r1 [-shared] -threads 8 -count 500 [-start-at NS]
+//	gfs-bench snapshot   -masters M -ds /bench/ds -files 8 -runs 3 -cow-files 3 -many 1000
 //
 // File contents are a pure function of (path, offset), so any process can
 // regenerate the expected bytes of any region to verify it.
@@ -41,7 +43,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: gfs-bench <net-serve|net-send|write|read|append|scan|verify|watch> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: gfs-bench <net-serve|net-send|write|read|append|scan|verify|watch|meta|snapshot> [flags]")
 		os.Exit(2)
 	}
 	cmd, args := os.Args[1], os.Args[2:]
@@ -63,6 +65,10 @@ func main() {
 		err = verify(args)
 	case "watch":
 		err = watch(args)
+	case "meta":
+		err = meta(args)
+	case "snapshot":
+		err = snapshotBench(args)
 	default:
 		err = fmt.Errorf("unknown command %q", cmd)
 	}
@@ -480,6 +486,7 @@ func verify(args []string) error {
 	cf := commonFlags(fs)
 	prefix := fs.String("prefix", "/bench/ds/f", "files are <prefix>0 .. <prefix>N-1")
 	files := fs.Int("files", 8, "number of files")
+	contentOf := fs.String("content-of", "", "expected content is that written to <content-of>i, e.g. for snapshots (default: -prefix)")
 	of := fs.Int("of", envInt("SLURM_NTASKS", 1), "number of verifier processes; this one takes files with i % of == id")
 	allReplicas := fs.Bool("all-replicas", false, "read and check every replica of every chunk")
 	wantReplicas := fs.Int("replicas", 3, "with -all-replicas: required replica count per chunk")
@@ -515,6 +522,9 @@ func verify(args []string) error {
 			problems = append(problems, fmt.Sprintf("%s: size %d, want %d", p, sz, int64(expect)))
 		}
 		seed := seedOf(p)
+		if *contentOf != "" {
+			seed = seedOf(*contentOf + strconv.Itoa(i))
+		}
 		if !*allReplicas {
 			buf, want := make([]byte, 8<<20), make([]byte, 8<<20)
 			for off := int64(0); off < sz; off += int64(len(buf)) {

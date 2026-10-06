@@ -23,6 +23,8 @@ MNODE=$SLURMD_NODENAME
 NODES=("$MNODE")
 for n in "${ALL[@]}"; do [ "$n" = "$MNODE" ] || NODES+=("$n"); done
 CSNODES=("${NODES[@]:1}")
+# Nodes that clients() places clients on, round-robin; a job may narrow it.
+CLIENT_NODES=("${NODES[@]}")
 
 declare -A IP
 STEPS=()
@@ -94,7 +96,7 @@ stop_cluster() {
 trap stop_cluster EXIT
 
 # clients TAG N CMD... runs N copies of `gfs-bench CMD... -id i -start-at T`
-# on nodes chosen round-robin, all starting at the same wall-clock time T.
+# on CLIENT_NODES chosen round-robin, all starting at the same wall-clock time T.
 # Each client's CSV line goes to $OUT/raw/TAG.csv; returns non-zero if any
 # client failed.
 clients() {
@@ -102,7 +104,7 @@ clients() {
 	shift 2
 	local t=$(($(date +%s%N) + 4000000000)) pids=() rc=0
 	for ((i = 0; i < n; i++)); do
-		local node=${NODES[$((i % ${#NODES[@]}))]}
+		local node=${CLIENT_NODES[$((i % ${#CLIENT_NODES[@]}))]}
 		step "$node" "$BIN/gfs-bench" "$@" -id "$i" -start-at "$t" \
 			>"$OUT/raw/$tag.$i.csv" 2>"$OUT/logs/$tag.$i.err" &
 		pids+=($!)
