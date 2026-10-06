@@ -163,6 +163,16 @@ func (c *Client) Delete(path string) error {
 	})
 }
 
+// Snapshot makes dst a copy-on-write copy of the file or directory src
+// (§3.4). It takes about as long as a metadata operation; chunks are copied
+// later, the first time either side mutates them.
+func (c *Client) Snapshot(src, dst string) error {
+	return c.writeMaster(func(ctx context.Context, m pb.MasterClient) error {
+		_, err := m.Snapshot(ctx, &pb.SnapshotRequest{Source: src, Target: dst})
+		return err
+	})
+}
+
 func (c *Client) List(path string) ([]*pb.ListEntry, error) {
 	var resp *pb.ListResponse
 	err := c.readMaster(func(ctx context.Context, m pb.MasterClient) (err error) {

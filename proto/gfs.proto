@@ -35,6 +35,8 @@ service Master {
   rpc DeleteFile(DeleteFileRequest) returns (Empty);
   rpc List(ListRequest) returns (ListResponse);
   rpc Stat(StatRequest) returns (StatResponse);
+  // Copy-on-write snapshot of a file or directory tree (§3.4).
+  rpc Snapshot(SnapshotRequest) returns (Empty);
 
   // Chunk metadata (§2.4, §3.1).
   rpc GetChunkLocations(GetChunkLocationsRequest) returns (GetChunkLocationsResponse);
@@ -82,6 +84,11 @@ message ListEntry {
 message ListResponse { repeated ListEntry entries = 1; }
 
 message StatRequest { string path = 1; }
+
+message SnapshotRequest {
+  string source = 1;
+  string target = 2; // must not exist
+}
 
 message StatResponse {
   bool is_dir = 1;
@@ -198,6 +205,9 @@ service ChunkServer {
   rpc GrantLease(GrantLeaseRequest) returns (Empty);
   rpc RevokeLease(RevokeLeaseRequest) returns (Empty);
   rpc CloneChunk(CloneChunkRequest) returns (ChunkReport);
+  // Copy-on-write after a snapshot (§3.4): duplicate a replica on this
+  // server under a new handle, without touching the network.
+  rpc CopyChunk(CopyChunkRequest) returns (ChunkReport);
   rpc DeleteChunks(DeleteChunksRequest) returns (Empty);
   rpc VerifyAll(Empty) returns (VerifyAllResponse);
 }
@@ -275,6 +285,13 @@ message CloneChunkRequest {
   string source = 3;
 }
 
+message CopyChunkRequest {
+  uint64 handle = 1;
+  uint64 version = 2; // the local replica must be at this version
+  uint64 new_handle = 3;
+  uint64 new_version = 4;
+}
+
 message DeleteChunksRequest { repeated uint64 handles = 1; }
 
 message VerifyAllResponse {
@@ -296,6 +313,8 @@ message LogRecord {
     DeleteFileOp delete_file = 12;
     AddChunkOp add_chunk = 13;
     SetVersionOp set_version = 14;
+    SnapshotOp snapshot = 15;
+    ReplaceChunkOp replace_chunk = 16;
   }
 }
 
@@ -318,6 +337,23 @@ message AddChunkOp {
 message SetVersionOp {
   uint64 handle = 1;
   uint64 version = 2;
+}
+
+// Duplicates the metadata of a file or directory tree. The copies share
+// the source's chunks, whose reference counts go up by one (§3.4).
+message SnapshotOp {
+  string source = 1;
+  string target = 2;
+}
+
+// Copy-on-write: chunk index of path stops referencing old_handle and
+// references new_handle, a fresh local copy of it (§3.4).
+message ReplaceChunkOp {
+  string path = 1;
+  int64 index = 2;
+  uint64 old_handle = 3;
+  uint64 new_handle = 4;
+  uint64 version = 5;
 }
 
 message FileState {

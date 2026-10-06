@@ -277,10 +277,23 @@ func (m *Master) Stop() {
 // it observed before replying (see readDone), so no client ever acts on
 // state that could be lost in a crash (§2.6.3).
 func (m *Master) commit(rec *pb.LogRecord) error {
+	return m.commitIf(rec, nil)
+}
+
+// commitIf is commit with a precondition on soft state, checked under m.mu
+// atomically with applying rec. A failed precondition's error is returned
+// unchanged.
+func (m *Master) commitIf(rec *pb.LogRecord, pre func() error) error {
 	if m.cfg.Shadow {
 		return status.Error(codes.FailedPrecondition, "shadow master is read-only")
 	}
 	m.mu.Lock()
+	if pre != nil {
+		if err := pre(); err != nil {
+			m.mu.Unlock()
+			return err
+		}
+	}
 	rec.Lsn = m.st.LSN + 1
 	rec.UnixNanos = time.Now().UnixNano()
 	orphaned, err := m.st.Apply(rec)
@@ -304,12 +317,17 @@ func (m *Master) commit(rec *pb.LogRecord) error {
 
 // afterApplyLocked keeps soft state in sync with an applied record.
 func (m *Master) afterApplyLocked(rec *pb.LogRecord, orphaned []common.ChunkHandle) {
+	var added uint64
 	if a := rec.GetAddChunk(); a != nil {
-		h := common.ChunkHandle(a.Handle)
-		if m.soft[h] == nil {
+		added = a.Handle
+	} else if r := rec.GetReplaceChunk(); r != nil {
+		added = r.NewHandle
+	}
+	if added != 0 {
+		if h := common.ChunkHandle(added); m.soft[h] == nil {
 			m.soft[h] = newChunkSoft()
 		}
-		m.nextHandle = max(m.nextHandle, a.Handle+1)
+		m.nextHandle = max(m.nextHandle, added+1)
 	}
 	// Orphaned chunks are forgotten; their replicas are reclaimed lazily
 	// when chunkservers report them in heartbeats (§4.4).

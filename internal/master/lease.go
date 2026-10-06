@@ -2,6 +2,7 @@ package master
 
 import (
 	"context"
+	"errors"
 	"math/rand/v2"
 	"sync"
 	"time"
@@ -14,6 +15,8 @@ import (
 )
 
 const rpcTimeout = 10 * time.Second
+
+var errChunkMoved = errors.New("chunk replaced concurrently")
 
 func (m *Master) csClient(addr string) (pb.ChunkServerClient, error) {
 	conn, err := m.pool.Get(addr)
@@ -83,13 +86,54 @@ func (m *Master) GetLeaseHolder(ctx context.Context, req *pb.GetLeaseHolderReque
 		}
 	}
 
-	m.mu.RLock()
-	f, ok = m.st.Files[p]
-	if !ok || req.Index >= int64(len(f.Chunks)) {
-		m.mu.RUnlock()
-		return nil, status.Errorf(codes.NotFound, "%s: deleted concurrently", p)
+	for attempt := 0; ; attempt++ {
+		resp, cow, err := m.leaseHolder(p, req.Index)
+		if errors.Is(err, errChunkMoved) && attempt < 10 {
+			continue
+		}
+		if cow == 0 || attempt >= 3 {
+			return resp, err
+		}
+		// The chunk is shared with a snapshot: copy it first (§3.4), then
+		// grant the lease on the copy, which now belongs to this file alone.
+		if err := m.copyOnWriteLocked(p, req.Index, cow); err != nil {
+			return nil, err
+		}
 	}
-	h := f.Chunks[req.Index]
+}
+
+// copyOnWriteLocked takes cs.mu for h and copies it, unless another request
+// already replaced it.
+func (m *Master) copyOnWriteLocked(path string, idx int64, h common.ChunkHandle) error {
+	m.mu.RLock()
+	cs := m.soft[h]
+	m.mu.RUnlock()
+	if cs == nil {
+		return nil
+	}
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	m.mu.RLock()
+	f, meta := m.st.Files[path], m.st.Chunks[h]
+	still := f != nil && idx < int64(len(f.Chunks)) && f.Chunks[idx] == h && meta != nil && meta.Refcount > 1
+	m.mu.RUnlock()
+	if !still {
+		return nil
+	}
+	return m.copyOnWrite(path, idx, h)
+}
+
+// leaseHolder returns the current lease holder of chunk idx, granting a
+// lease if there is none. If the chunk is shared with a snapshot it returns
+// the chunk's handle as cow instead, and the caller copies it first.
+func (m *Master) leaseHolder(p string, idx int64) (resp *pb.GetLeaseHolderResponse, cow common.ChunkHandle, err error) {
+	m.mu.RLock()
+	f, ok := m.st.Files[p]
+	if !ok || idx >= int64(len(f.Chunks)) {
+		m.mu.RUnlock()
+		return nil, 0, status.Errorf(codes.NotFound, "%s: deleted concurrently", p)
+	}
+	h := f.Chunks[idx]
 	cs := m.soft[h]
 	m.mu.RUnlock()
 
@@ -100,20 +144,30 @@ func (m *Master) GetLeaseHolder(ctx context.Context, req *pb.GetLeaseHolderReque
 	meta := m.st.Chunks[h]
 	if meta == nil {
 		m.mu.RUnlock()
-		return nil, status.Errorf(codes.NotFound, "chunk deleted concurrently")
+		return nil, 0, status.Errorf(codes.NotFound, "chunk deleted concurrently")
+	}
+	// A copy-on-write may have replaced the chunk while we waited for its
+	// lock; it may now belong to a snapshot alone.
+	if f = m.st.Files[p]; f == nil || idx >= int64(len(f.Chunks)) || f.Chunks[idx] != h {
+		m.mu.RUnlock()
+		return nil, 0, errChunkMoved
+	}
+	if meta.Refcount > 1 {
+		m.mu.RUnlock()
+		return nil, h, nil
 	}
 	primary, expiry := cs.primary, cs.leaseExpiry
 	live := m.liveLocsLocked(h)
 	valid := primary != "" && time.Now().Before(expiry) && m.leaseReplicasIntactLocked(h, cs)
-	var resp *pb.GetLeaseHolderResponse
 	if valid {
-		resp = m.leaseResponseLocked(h, req.Index, meta.Version, primary, live, expiry)
+		resp = m.leaseResponseLocked(h, idx, meta.Version, primary, live, expiry)
 	}
 	m.mu.RUnlock()
 	if resp != nil {
-		return resp, nil
+		return resp, 0, nil
 	}
-	return m.grantLease(h, req.Index, p)
+	resp, err = m.grantLease(h, idx, p)
+	return resp, 0, err
 }
 
 // leaseReplicasIntactLocked reports whether every replica that was live
@@ -206,6 +260,42 @@ func (m *Master) grantLease(h common.ChunkHandle, idx int64, path string) (*pb.G
 		return resp, nil
 	}
 	return nil, status.Errorf(codes.Unavailable, "no replica of chunk %s accepted the lease", h)
+}
+
+// revokeLease ends any lease on h (cs.mu held). The primary stops accepting
+// mutations and waits for the one in flight. If it cannot be reached, the
+// version bump fences it instead: secondaries reject its mutations, and its
+// own replica becomes stale (§4.5).
+func (m *Master) revokeLease(h common.ChunkHandle, cs *chunkSoft) error {
+	m.mu.RLock()
+	primary, expiry := cs.primary, cs.leaseExpiry
+	var addr string
+	if s := m.servers[primary]; s != nil {
+		addr = s.addr
+	}
+	m.mu.RUnlock()
+	if primary == "" || !time.Now().Before(expiry) {
+		return nil
+	}
+	err := errors.New("primary not registered")
+	if addr != "" {
+		var cli pb.ChunkServerClient
+		if cli, err = m.csClient(addr); err == nil {
+			ctx, cancel := context.WithTimeout(m.ctx, rpcTimeout)
+			_, err = cli.RevokeLease(ctx, &pb.RevokeLeaseRequest{Handle: uint64(h)})
+			cancel()
+		}
+	}
+	if err != nil {
+		m.log.Warn("revoke lease failed; fencing with a version bump", "chunk", h, "server", short(primary), "err", err)
+		if _, _, err := m.bumpVersion(h); err != nil {
+			return err
+		}
+	}
+	m.mu.Lock()
+	cs.primary, cs.leaseExpiry, cs.leaseLocs = "", time.Time{}, nil
+	m.mu.Unlock()
+	return nil
 }
 
 // bumpVersion increments the chunk version on every live replica, then logs

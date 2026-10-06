@@ -28,6 +28,7 @@ const (
 	Master_DeleteFile_FullMethodName        = "/gfs.Master/DeleteFile"
 	Master_List_FullMethodName              = "/gfs.Master/List"
 	Master_Stat_FullMethodName              = "/gfs.Master/Stat"
+	Master_Snapshot_FullMethodName          = "/gfs.Master/Snapshot"
 	Master_GetChunkLocations_FullMethodName = "/gfs.Master/GetChunkLocations"
 	Master_GetLeaseHolder_FullMethodName    = "/gfs.Master/GetLeaseHolder"
 	Master_Register_FullMethodName          = "/gfs.Master/Register"
@@ -49,6 +50,8 @@ type MasterClient interface {
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*Empty, error)
 	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error)
 	Stat(ctx context.Context, in *StatRequest, opts ...grpc.CallOption) (*StatResponse, error)
+	// Copy-on-write snapshot of a file or directory tree (§3.4).
+	Snapshot(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Chunk metadata (§2.4, §3.1).
 	GetChunkLocations(ctx context.Context, in *GetChunkLocationsRequest, opts ...grpc.CallOption) (*GetChunkLocationsResponse, error)
 	GetLeaseHolder(ctx context.Context, in *GetLeaseHolderRequest, opts ...grpc.CallOption) (*GetLeaseHolderResponse, error)
@@ -124,6 +127,16 @@ func (c *masterClient) Stat(ctx context.Context, in *StatRequest, opts ...grpc.C
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StatResponse)
 	err := c.cc.Invoke(ctx, Master_Stat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterClient) Snapshot(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Master_Snapshot_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +234,8 @@ type MasterServer interface {
 	DeleteFile(context.Context, *DeleteFileRequest) (*Empty, error)
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	Stat(context.Context, *StatRequest) (*StatResponse, error)
+	// Copy-on-write snapshot of a file or directory tree (§3.4).
+	Snapshot(context.Context, *SnapshotRequest) (*Empty, error)
 	// Chunk metadata (§2.4, §3.1).
 	GetChunkLocations(context.Context, *GetChunkLocationsRequest) (*GetChunkLocationsResponse, error)
 	GetLeaseHolder(context.Context, *GetLeaseHolderRequest) (*GetLeaseHolderResponse, error)
@@ -259,6 +274,9 @@ func (UnimplementedMasterServer) List(context.Context, *ListRequest) (*ListRespo
 }
 func (UnimplementedMasterServer) Stat(context.Context, *StatRequest) (*StatResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Stat not implemented")
+}
+func (UnimplementedMasterServer) Snapshot(context.Context, *SnapshotRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Snapshot not implemented")
 }
 func (UnimplementedMasterServer) GetChunkLocations(context.Context, *GetChunkLocationsRequest) (*GetChunkLocationsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetChunkLocations not implemented")
@@ -406,6 +424,24 @@ func _Master_Stat_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MasterServer).Stat(ctx, req.(*StatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Master_Snapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServer).Snapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Master_Snapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServer).Snapshot(ctx, req.(*SnapshotRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -561,6 +597,10 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Master_Stat_Handler,
 		},
 		{
+			MethodName: "Snapshot",
+			Handler:    _Master_Snapshot_Handler,
+		},
+		{
 			MethodName: "GetChunkLocations",
 			Handler:    _Master_GetChunkLocations_Handler,
 		},
@@ -607,6 +647,7 @@ const (
 	ChunkServer_GrantLease_FullMethodName    = "/gfs.ChunkServer/GrantLease"
 	ChunkServer_RevokeLease_FullMethodName   = "/gfs.ChunkServer/RevokeLease"
 	ChunkServer_CloneChunk_FullMethodName    = "/gfs.ChunkServer/CloneChunk"
+	ChunkServer_CopyChunk_FullMethodName     = "/gfs.ChunkServer/CopyChunk"
 	ChunkServer_DeleteChunks_FullMethodName  = "/gfs.ChunkServer/DeleteChunks"
 	ChunkServer_VerifyAll_FullMethodName     = "/gfs.ChunkServer/VerifyAll"
 )
@@ -633,6 +674,9 @@ type ChunkServerClient interface {
 	GrantLease(ctx context.Context, in *GrantLeaseRequest, opts ...grpc.CallOption) (*Empty, error)
 	RevokeLease(ctx context.Context, in *RevokeLeaseRequest, opts ...grpc.CallOption) (*Empty, error)
 	CloneChunk(ctx context.Context, in *CloneChunkRequest, opts ...grpc.CallOption) (*ChunkReport, error)
+	// Copy-on-write after a snapshot (§3.4): duplicate a replica on this
+	// server under a new handle, without touching the network.
+	CopyChunk(ctx context.Context, in *CopyChunkRequest, opts ...grpc.CallOption) (*ChunkReport, error)
 	DeleteChunks(ctx context.Context, in *DeleteChunksRequest, opts ...grpc.CallOption) (*Empty, error)
 	VerifyAll(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*VerifyAllResponse, error)
 }
@@ -767,6 +811,16 @@ func (c *chunkServerClient) CloneChunk(ctx context.Context, in *CloneChunkReques
 	return out, nil
 }
 
+func (c *chunkServerClient) CopyChunk(ctx context.Context, in *CopyChunkRequest, opts ...grpc.CallOption) (*ChunkReport, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChunkReport)
+	err := c.cc.Invoke(ctx, ChunkServer_CopyChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chunkServerClient) DeleteChunks(ctx context.Context, in *DeleteChunksRequest, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
@@ -809,6 +863,9 @@ type ChunkServerServer interface {
 	GrantLease(context.Context, *GrantLeaseRequest) (*Empty, error)
 	RevokeLease(context.Context, *RevokeLeaseRequest) (*Empty, error)
 	CloneChunk(context.Context, *CloneChunkRequest) (*ChunkReport, error)
+	// Copy-on-write after a snapshot (§3.4): duplicate a replica on this
+	// server under a new handle, without touching the network.
+	CopyChunk(context.Context, *CopyChunkRequest) (*ChunkReport, error)
 	DeleteChunks(context.Context, *DeleteChunksRequest) (*Empty, error)
 	VerifyAll(context.Context, *Empty) (*VerifyAllResponse, error)
 	mustEmbedUnimplementedChunkServerServer()
@@ -853,6 +910,9 @@ func (UnimplementedChunkServerServer) RevokeLease(context.Context, *RevokeLeaseR
 }
 func (UnimplementedChunkServerServer) CloneChunk(context.Context, *CloneChunkRequest) (*ChunkReport, error) {
 	return nil, status.Error(codes.Unimplemented, "method CloneChunk not implemented")
+}
+func (UnimplementedChunkServerServer) CopyChunk(context.Context, *CopyChunkRequest) (*ChunkReport, error) {
+	return nil, status.Error(codes.Unimplemented, "method CopyChunk not implemented")
 }
 func (UnimplementedChunkServerServer) DeleteChunks(context.Context, *DeleteChunksRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteChunks not implemented")
@@ -1061,6 +1121,24 @@ func _ChunkServer_CloneChunk_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChunkServer_CopyChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CopyChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChunkServerServer).CopyChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChunkServer_CopyChunk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChunkServerServer).CopyChunk(ctx, req.(*CopyChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChunkServer_DeleteChunks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteChunksRequest)
 	if err := dec(in); err != nil {
@@ -1139,6 +1217,10 @@ var ChunkServer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloneChunk",
 			Handler:    _ChunkServer_CloneChunk_Handler,
+		},
+		{
+			MethodName: "CopyChunk",
+			Handler:    _ChunkServer_CopyChunk_Handler,
 		},
 		{
 			MethodName: "DeleteChunks",

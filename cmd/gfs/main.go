@@ -32,6 +32,7 @@ commands:
   append <file> [local]            append a local file (or stdin) as one record; prints its offset
   read <file> <offset> <length>    read a byte range to stdout
   rm <path>                        delete a file or an empty directory
+  snapshot <src> <dst>             copy-on-write copy of a file or directory tree
   status                           show cluster status
 `
 
@@ -229,6 +230,13 @@ func run(c *client.Client, cmd string, args []string) error {
 			return err
 		}
 		return c.Delete(fs.Arg(0))
+
+	case "snapshot":
+		fs.Parse(args)
+		if err := need(fs, 2); err != nil {
+			return err
+		}
+		return c.Snapshot(fs.Arg(0), fs.Arg(1))
 
 	case "status":
 		st, err := c.ClusterStatus()

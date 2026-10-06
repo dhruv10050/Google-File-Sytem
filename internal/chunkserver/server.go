@@ -596,6 +596,30 @@ func (s *Server) CloneChunk(ctx context.Context, req *pb.CloneChunkRequest) (*pb
 	return &pb.ChunkReport{Handle: req.Handle, Version: req.Version, Length: info.Length}, nil
 }
 
+// CopyChunk duplicates a local replica under a new handle for copy-on-write
+// after a snapshot (§3.4). The master revoked the lease first, so the
+// source is not being mutated; reading it verifies its checksums, so a
+// corrupted replica is reported rather than copied (§5.2).
+func (s *Server) CopyChunk(ctx context.Context, req *pb.CopyChunkRequest) (*pb.ChunkReport, error) {
+	c, err := s.getChunk(req.Handle)
+	if err != nil {
+		return nil, err
+	}
+	c.mutMu.Lock()
+	defer c.mutMu.Unlock()
+	if v := c.Version(); v != req.Version {
+		return nil, status.Errorf(codes.FailedPrecondition, "have version %d, want %d", v, req.Version)
+	}
+	data, err := s.store.Read(c, 0, s.store.ChunkSize())
+	if err != nil {
+		return nil, s.storeErr(c, err)
+	}
+	if err := s.store.Install(common.ChunkHandle(req.NewHandle), req.NewVersion, data); err != nil {
+		return nil, status.Errorf(codes.Internal, "install: %v", err)
+	}
+	return &pb.ChunkReport{Handle: req.NewHandle, Version: req.NewVersion, Length: int64(len(data))}, nil
+}
+
 func (s *Server) DeleteChunks(ctx context.Context, req *pb.DeleteChunksRequest) (*pb.Empty, error) {
 	s.deleteChunks(req.Handles)
 	return &pb.Empty{}, nil

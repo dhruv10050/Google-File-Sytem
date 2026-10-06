@@ -127,6 +127,32 @@ func (s *State) Validate(rec *pb.LogRecord) error {
 		if op.SetVersion.Version <= c.Version {
 			return fmt.Errorf("version %d not above %d: %w", op.SetVersion.Version, c.Version, ErrInvalid)
 		}
+	case *pb.LogRecord_Snapshot:
+		src, dst := op.Snapshot.Source, op.Snapshot.Target
+		if !s.exists(src) {
+			return fmt.Errorf("%s: %w", src, ErrNotFound)
+		}
+		if s.exists(dst) {
+			return fmt.Errorf("%s: %w", dst, ErrExists)
+		}
+		if !s.Dirs[common.Parent(dst)] {
+			return fmt.Errorf("%s: %w", common.Parent(dst), ErrNotDir)
+		}
+		if s.Dirs[src] && (src == "/" || strings.HasPrefix(dst, src+"/")) {
+			return fmt.Errorf("snapshot of %s into itself: %w", src, ErrInvalid)
+		}
+	case *pb.LogRecord_ReplaceChunk:
+		r := op.ReplaceChunk
+		f, ok := s.Files[r.Path]
+		if !ok {
+			return fmt.Errorf("%s: %w", r.Path, ErrNotFound)
+		}
+		if r.Index < 0 || r.Index >= int64(len(f.Chunks)) || f.Chunks[r.Index] != common.ChunkHandle(r.OldHandle) {
+			return fmt.Errorf("%s chunk %d is not %d: %w", r.Path, r.Index, r.OldHandle, ErrInvalid)
+		}
+		if _, dup := s.Chunks[common.ChunkHandle(r.NewHandle)]; dup {
+			return fmt.Errorf("chunk handle %d reused: %w", r.NewHandle, ErrInvalid)
+		}
 	default:
 		return fmt.Errorf("unknown log op %T: %w", rec.Op, ErrInvalid)
 	}
@@ -172,9 +198,72 @@ func (s *State) Apply(rec *pb.LogRecord) ([]common.ChunkHandle, error) {
 		s.NextHandle = max(s.NextHandle, a.Handle+1)
 	case *pb.LogRecord_SetVersion:
 		s.Chunks[common.ChunkHandle(op.SetVersion.Handle)].Version = op.SetVersion.Version
+	case *pb.LogRecord_Snapshot:
+		s.applySnapshot(op.Snapshot.Source, op.Snapshot.Target, rec.UnixNanos)
+	case *pb.LogRecord_ReplaceChunk:
+		r := op.ReplaceChunk
+		old, h := common.ChunkHandle(r.OldHandle), common.ChunkHandle(r.NewHandle)
+		s.Files[r.Path].Chunks[r.Index] = h
+		s.Chunks[h] = &ChunkMeta{Version: r.Version, Refcount: 1}
+		s.NextHandle = max(s.NextHandle, r.NewHandle+1)
+		c := s.Chunks[old]
+		c.Refcount--
+		if c.Refcount <= 0 {
+			delete(s.Chunks, old)
+			orphaned = append(orphaned, old)
+		}
 	}
 	s.LSN = rec.Lsn
 	return orphaned, nil
+}
+
+// applySnapshot copies the metadata of src (a file, or a directory and
+// everything under it) to dst. Copies share chunks with the originals.
+func (s *State) applySnapshot(src, dst string, now int64) {
+	copyFile := func(from, to string) {
+		f := s.Files[from]
+		s.Files[to] = &FileMeta{Replication: f.Replication, Ctime: now, Chunks: append([]common.ChunkHandle(nil), f.Chunks...)}
+		for _, h := range f.Chunks {
+			s.Chunks[h].Refcount++
+		}
+	}
+	if !s.Dirs[src] {
+		copyFile(src, dst)
+		return
+	}
+	// Collect first: the copies are inserted into the maps being scanned.
+	prefix := src + "/"
+	var dirs, files []string
+	for d := range s.Dirs {
+		if strings.HasPrefix(d, prefix) {
+			dirs = append(dirs, d)
+		}
+	}
+	for p := range s.Files {
+		if strings.HasPrefix(p, prefix) {
+			files = append(files, p)
+		}
+	}
+	s.Dirs[dst] = true
+	for _, d := range dirs {
+		s.Dirs[dst+"/"+d[len(prefix):]] = true
+	}
+	for _, p := range files {
+		copyFile(p, dst+"/"+p[len(prefix):])
+	}
+}
+
+// SnapshotChunks returns the chunks a snapshot of src would share.
+func (s *State) SnapshotChunks(src string) map[common.ChunkHandle]bool {
+	out := map[common.ChunkHandle]bool{}
+	for p, f := range s.Files {
+		if p == src || (s.Dirs[src] && strings.HasPrefix(p, strings.TrimSuffix(src, "/")+"/")) {
+			for _, h := range f.Chunks {
+				out[h] = true
+			}
+		}
+	}
+	return out
 }
 
 // ToCheckpoint serializes the full state.

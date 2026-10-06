@@ -596,6 +596,58 @@ func (x *StatRequest) GetPath() string {
 	return ""
 }
 
+type SnapshotRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	Target        string                 `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"` // must not exist
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnapshotRequest) Reset() {
+	*x = SnapshotRequest{}
+	mi := &file_gfs_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnapshotRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnapshotRequest) ProtoMessage() {}
+
+func (x *SnapshotRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gfs_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnapshotRequest.ProtoReflect.Descriptor instead.
+func (*SnapshotRequest) Descriptor() ([]byte, []int) {
+	return file_gfs_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SnapshotRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *SnapshotRequest) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
 type StatResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	IsDir          bool                   `protobuf:"varint,1,opt,name=is_dir,json=isDir,proto3" json:"is_dir,omitempty"`
@@ -608,7 +660,7 @@ type StatResponse struct {
 
 func (x *StatResponse) Reset() {
 	*x = StatResponse{}
-	mi := &file_gfs_proto_msgTypes[11]
+	mi := &file_gfs_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -620,7 +672,7 @@ func (x *StatResponse) String() string {
 func (*StatResponse) ProtoMessage() {}
 
 func (x *StatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[11]
+	mi := &file_gfs_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,7 +685,7 @@ func (x *StatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatResponse.ProtoReflect.Descriptor instead.
 func (*StatResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{11}
+	return file_gfs_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *StatResponse) GetIsDir() bool {
@@ -675,7 +727,7 @@ type GetChunkLocationsRequest struct {
 
 func (x *GetChunkLocationsRequest) Reset() {
 	*x = GetChunkLocationsRequest{}
-	mi := &file_gfs_proto_msgTypes[12]
+	mi := &file_gfs_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -687,7 +739,7 @@ func (x *GetChunkLocationsRequest) String() string {
 func (*GetChunkLocationsRequest) ProtoMessage() {}
 
 func (x *GetChunkLocationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[12]
+	mi := &file_gfs_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -700,7 +752,7 @@ func (x *GetChunkLocationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetChunkLocationsRequest.ProtoReflect.Descriptor instead.
 func (*GetChunkLocationsRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{12}
+	return file_gfs_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetChunkLocationsRequest) GetPath() string {
@@ -734,7 +786,7 @@ type GetChunkLocationsResponse struct {
 
 func (x *GetChunkLocationsResponse) Reset() {
 	*x = GetChunkLocationsResponse{}
-	mi := &file_gfs_proto_msgTypes[13]
+	mi := &file_gfs_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -746,7 +798,7 @@ func (x *GetChunkLocationsResponse) String() string {
 func (*GetChunkLocationsResponse) ProtoMessage() {}
 
 func (x *GetChunkLocationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[13]
+	mi := &file_gfs_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -759,7 +811,7 @@ func (x *GetChunkLocationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetChunkLocationsResponse.ProtoReflect.Descriptor instead.
 func (*GetChunkLocationsResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{13}
+	return file_gfs_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetChunkLocationsResponse) GetChunks() []*ChunkLocation {
@@ -787,7 +839,7 @@ type GetLeaseHolderRequest struct {
 
 func (x *GetLeaseHolderRequest) Reset() {
 	*x = GetLeaseHolderRequest{}
-	mi := &file_gfs_proto_msgTypes[14]
+	mi := &file_gfs_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -799,7 +851,7 @@ func (x *GetLeaseHolderRequest) String() string {
 func (*GetLeaseHolderRequest) ProtoMessage() {}
 
 func (x *GetLeaseHolderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[14]
+	mi := &file_gfs_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -812,7 +864,7 @@ func (x *GetLeaseHolderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLeaseHolderRequest.ProtoReflect.Descriptor instead.
 func (*GetLeaseHolderRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{14}
+	return file_gfs_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetLeaseHolderRequest) GetPath() string {
@@ -848,7 +900,7 @@ type GetLeaseHolderResponse struct {
 
 func (x *GetLeaseHolderResponse) Reset() {
 	*x = GetLeaseHolderResponse{}
-	mi := &file_gfs_proto_msgTypes[15]
+	mi := &file_gfs_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -860,7 +912,7 @@ func (x *GetLeaseHolderResponse) String() string {
 func (*GetLeaseHolderResponse) ProtoMessage() {}
 
 func (x *GetLeaseHolderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[15]
+	mi := &file_gfs_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -873,7 +925,7 @@ func (x *GetLeaseHolderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLeaseHolderResponse.ProtoReflect.Descriptor instead.
 func (*GetLeaseHolderResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{15}
+	return file_gfs_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetLeaseHolderResponse) GetChunk() *ChunkLocation {
@@ -917,7 +969,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_gfs_proto_msgTypes[16]
+	mi := &file_gfs_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +981,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[16]
+	mi := &file_gfs_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -942,7 +994,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{16}
+	return file_gfs_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RegisterRequest) GetServerId() string {
@@ -991,7 +1043,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_gfs_proto_msgTypes[17]
+	mi := &file_gfs_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1003,7 +1055,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[17]
+	mi := &file_gfs_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1016,7 +1068,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{17}
+	return file_gfs_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *RegisterResponse) GetChunkSize() int64 {
@@ -1056,7 +1108,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_gfs_proto_msgTypes[18]
+	mi := &file_gfs_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1068,7 +1120,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[18]
+	mi := &file_gfs_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1081,7 +1133,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{18}
+	return file_gfs_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *HeartbeatRequest) GetServerId() string {
@@ -1150,7 +1202,7 @@ type LeaseExtension struct {
 
 func (x *LeaseExtension) Reset() {
 	*x = LeaseExtension{}
-	mi := &file_gfs_proto_msgTypes[19]
+	mi := &file_gfs_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1162,7 +1214,7 @@ func (x *LeaseExtension) String() string {
 func (*LeaseExtension) ProtoMessage() {}
 
 func (x *LeaseExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[19]
+	mi := &file_gfs_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1175,7 +1227,7 @@ func (x *LeaseExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaseExtension.ProtoReflect.Descriptor instead.
 func (*LeaseExtension) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{19}
+	return file_gfs_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *LeaseExtension) GetHandle() uint64 {
@@ -1203,7 +1255,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_gfs_proto_msgTypes[20]
+	mi := &file_gfs_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1215,7 +1267,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[20]
+	mi := &file_gfs_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1228,7 +1280,7 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{20}
+	return file_gfs_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *HeartbeatResponse) GetReregister() bool {
@@ -1261,7 +1313,7 @@ type StreamLogRequest struct {
 
 func (x *StreamLogRequest) Reset() {
 	*x = StreamLogRequest{}
-	mi := &file_gfs_proto_msgTypes[21]
+	mi := &file_gfs_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +1325,7 @@ func (x *StreamLogRequest) String() string {
 func (*StreamLogRequest) ProtoMessage() {}
 
 func (x *StreamLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[21]
+	mi := &file_gfs_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1338,7 @@ func (x *StreamLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamLogRequest.ProtoReflect.Descriptor instead.
 func (*StreamLogRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{21}
+	return file_gfs_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StreamLogRequest) GetFromLsn() uint64 {
@@ -1310,7 +1362,7 @@ type ServerStatus struct {
 
 func (x *ServerStatus) Reset() {
 	*x = ServerStatus{}
-	mi := &file_gfs_proto_msgTypes[22]
+	mi := &file_gfs_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1322,7 +1374,7 @@ func (x *ServerStatus) String() string {
 func (*ServerStatus) ProtoMessage() {}
 
 func (x *ServerStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[22]
+	mi := &file_gfs_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1335,7 +1387,7 @@ func (x *ServerStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerStatus.ProtoReflect.Descriptor instead.
 func (*ServerStatus) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{22}
+	return file_gfs_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ServerStatus) GetServerId() string {
@@ -1398,7 +1450,7 @@ type ClusterStatusResponse struct {
 
 func (x *ClusterStatusResponse) Reset() {
 	*x = ClusterStatusResponse{}
-	mi := &file_gfs_proto_msgTypes[23]
+	mi := &file_gfs_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1410,7 +1462,7 @@ func (x *ClusterStatusResponse) String() string {
 func (*ClusterStatusResponse) ProtoMessage() {}
 
 func (x *ClusterStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[23]
+	mi := &file_gfs_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1423,7 +1475,7 @@ func (x *ClusterStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterStatusResponse.ProtoReflect.Descriptor instead.
 func (*ClusterStatusResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{23}
+	return file_gfs_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ClusterStatusResponse) GetServers() []*ServerStatus {
@@ -1500,7 +1552,7 @@ type PushDataFrame struct {
 
 func (x *PushDataFrame) Reset() {
 	*x = PushDataFrame{}
-	mi := &file_gfs_proto_msgTypes[24]
+	mi := &file_gfs_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1512,7 +1564,7 @@ func (x *PushDataFrame) String() string {
 func (*PushDataFrame) ProtoMessage() {}
 
 func (x *PushDataFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[24]
+	mi := &file_gfs_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1525,7 +1577,7 @@ func (x *PushDataFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushDataFrame.ProtoReflect.Descriptor instead.
 func (*PushDataFrame) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{24}
+	return file_gfs_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PushDataFrame) GetDataId() string {
@@ -1558,7 +1610,7 @@ type PushDataResponse struct {
 
 func (x *PushDataResponse) Reset() {
 	*x = PushDataResponse{}
-	mi := &file_gfs_proto_msgTypes[25]
+	mi := &file_gfs_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1570,7 +1622,7 @@ func (x *PushDataResponse) String() string {
 func (*PushDataResponse) ProtoMessage() {}
 
 func (x *PushDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[25]
+	mi := &file_gfs_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1583,7 +1635,7 @@ func (x *PushDataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushDataResponse.ProtoReflect.Descriptor instead.
 func (*PushDataResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{25}
+	return file_gfs_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *PushDataResponse) GetBytes() int64 {
@@ -1606,7 +1658,7 @@ type WriteRequest struct {
 
 func (x *WriteRequest) Reset() {
 	*x = WriteRequest{}
-	mi := &file_gfs_proto_msgTypes[26]
+	mi := &file_gfs_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1618,7 +1670,7 @@ func (x *WriteRequest) String() string {
 func (*WriteRequest) ProtoMessage() {}
 
 func (x *WriteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[26]
+	mi := &file_gfs_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1631,7 +1683,7 @@ func (x *WriteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteRequest.ProtoReflect.Descriptor instead.
 func (*WriteRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{26}
+	return file_gfs_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *WriteRequest) GetHandle() uint64 {
@@ -1683,7 +1735,7 @@ type ApplyMutationRequest struct {
 
 func (x *ApplyMutationRequest) Reset() {
 	*x = ApplyMutationRequest{}
-	mi := &file_gfs_proto_msgTypes[27]
+	mi := &file_gfs_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1695,7 +1747,7 @@ func (x *ApplyMutationRequest) String() string {
 func (*ApplyMutationRequest) ProtoMessage() {}
 
 func (x *ApplyMutationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[27]
+	mi := &file_gfs_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1708,7 +1760,7 @@ func (x *ApplyMutationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyMutationRequest.ProtoReflect.Descriptor instead.
 func (*ApplyMutationRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{27}
+	return file_gfs_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ApplyMutationRequest) GetHandle() uint64 {
@@ -1765,7 +1817,7 @@ type RecordAppendRequest struct {
 
 func (x *RecordAppendRequest) Reset() {
 	*x = RecordAppendRequest{}
-	mi := &file_gfs_proto_msgTypes[28]
+	mi := &file_gfs_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1777,7 +1829,7 @@ func (x *RecordAppendRequest) String() string {
 func (*RecordAppendRequest) ProtoMessage() {}
 
 func (x *RecordAppendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[28]
+	mi := &file_gfs_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1790,7 +1842,7 @@ func (x *RecordAppendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordAppendRequest.ProtoReflect.Descriptor instead.
 func (*RecordAppendRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{28}
+	return file_gfs_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *RecordAppendRequest) GetHandle() uint64 {
@@ -1831,7 +1883,7 @@ type RecordAppendResponse struct {
 
 func (x *RecordAppendResponse) Reset() {
 	*x = RecordAppendResponse{}
-	mi := &file_gfs_proto_msgTypes[29]
+	mi := &file_gfs_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1843,7 +1895,7 @@ func (x *RecordAppendResponse) String() string {
 func (*RecordAppendResponse) ProtoMessage() {}
 
 func (x *RecordAppendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[29]
+	mi := &file_gfs_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1856,7 +1908,7 @@ func (x *RecordAppendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordAppendResponse.ProtoReflect.Descriptor instead.
 func (*RecordAppendResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{29}
+	return file_gfs_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *RecordAppendResponse) GetOffset() int64 {
@@ -1885,7 +1937,7 @@ type ReadRequest struct {
 
 func (x *ReadRequest) Reset() {
 	*x = ReadRequest{}
-	mi := &file_gfs_proto_msgTypes[30]
+	mi := &file_gfs_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1897,7 +1949,7 @@ func (x *ReadRequest) String() string {
 func (*ReadRequest) ProtoMessage() {}
 
 func (x *ReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[30]
+	mi := &file_gfs_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1910,7 +1962,7 @@ func (x *ReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadRequest.ProtoReflect.Descriptor instead.
 func (*ReadRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{30}
+	return file_gfs_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ReadRequest) GetHandle() uint64 {
@@ -1950,7 +2002,7 @@ type DataFrame struct {
 
 func (x *DataFrame) Reset() {
 	*x = DataFrame{}
-	mi := &file_gfs_proto_msgTypes[31]
+	mi := &file_gfs_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1962,7 +2014,7 @@ func (x *DataFrame) String() string {
 func (*DataFrame) ProtoMessage() {}
 
 func (x *DataFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[31]
+	mi := &file_gfs_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1975,7 +2027,7 @@ func (x *DataFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DataFrame.ProtoReflect.Descriptor instead.
 func (*DataFrame) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{31}
+	return file_gfs_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DataFrame) GetData() []byte {
@@ -1994,7 +2046,7 @@ type ChunkInfoRequest struct {
 
 func (x *ChunkInfoRequest) Reset() {
 	*x = ChunkInfoRequest{}
-	mi := &file_gfs_proto_msgTypes[32]
+	mi := &file_gfs_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2006,7 +2058,7 @@ func (x *ChunkInfoRequest) String() string {
 func (*ChunkInfoRequest) ProtoMessage() {}
 
 func (x *ChunkInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[32]
+	mi := &file_gfs_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2019,7 +2071,7 @@ func (x *ChunkInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChunkInfoRequest.ProtoReflect.Descriptor instead.
 func (*ChunkInfoRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{32}
+	return file_gfs_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ChunkInfoRequest) GetHandle() uint64 {
@@ -2039,7 +2091,7 @@ type CreateChunkRequest struct {
 
 func (x *CreateChunkRequest) Reset() {
 	*x = CreateChunkRequest{}
-	mi := &file_gfs_proto_msgTypes[33]
+	mi := &file_gfs_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2051,7 +2103,7 @@ func (x *CreateChunkRequest) String() string {
 func (*CreateChunkRequest) ProtoMessage() {}
 
 func (x *CreateChunkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[33]
+	mi := &file_gfs_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2064,7 +2116,7 @@ func (x *CreateChunkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateChunkRequest.ProtoReflect.Descriptor instead.
 func (*CreateChunkRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{33}
+	return file_gfs_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *CreateChunkRequest) GetHandle() uint64 {
@@ -2092,7 +2144,7 @@ type SetVersionRequest struct {
 
 func (x *SetVersionRequest) Reset() {
 	*x = SetVersionRequest{}
-	mi := &file_gfs_proto_msgTypes[34]
+	mi := &file_gfs_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2104,7 +2156,7 @@ func (x *SetVersionRequest) String() string {
 func (*SetVersionRequest) ProtoMessage() {}
 
 func (x *SetVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[34]
+	mi := &file_gfs_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2117,7 +2169,7 @@ func (x *SetVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetVersionRequest.ProtoReflect.Descriptor instead.
 func (*SetVersionRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{34}
+	return file_gfs_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *SetVersionRequest) GetHandle() uint64 {
@@ -2152,7 +2204,7 @@ type GrantLeaseRequest struct {
 
 func (x *GrantLeaseRequest) Reset() {
 	*x = GrantLeaseRequest{}
-	mi := &file_gfs_proto_msgTypes[35]
+	mi := &file_gfs_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2164,7 +2216,7 @@ func (x *GrantLeaseRequest) String() string {
 func (*GrantLeaseRequest) ProtoMessage() {}
 
 func (x *GrantLeaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[35]
+	mi := &file_gfs_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2177,7 +2229,7 @@ func (x *GrantLeaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantLeaseRequest.ProtoReflect.Descriptor instead.
 func (*GrantLeaseRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{35}
+	return file_gfs_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *GrantLeaseRequest) GetHandle() uint64 {
@@ -2210,7 +2262,7 @@ type RevokeLeaseRequest struct {
 
 func (x *RevokeLeaseRequest) Reset() {
 	*x = RevokeLeaseRequest{}
-	mi := &file_gfs_proto_msgTypes[36]
+	mi := &file_gfs_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2222,7 +2274,7 @@ func (x *RevokeLeaseRequest) String() string {
 func (*RevokeLeaseRequest) ProtoMessage() {}
 
 func (x *RevokeLeaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[36]
+	mi := &file_gfs_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2235,7 +2287,7 @@ func (x *RevokeLeaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeLeaseRequest.ProtoReflect.Descriptor instead.
 func (*RevokeLeaseRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{36}
+	return file_gfs_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *RevokeLeaseRequest) GetHandle() uint64 {
@@ -2256,7 +2308,7 @@ type CloneChunkRequest struct {
 
 func (x *CloneChunkRequest) Reset() {
 	*x = CloneChunkRequest{}
-	mi := &file_gfs_proto_msgTypes[37]
+	mi := &file_gfs_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2268,7 +2320,7 @@ func (x *CloneChunkRequest) String() string {
 func (*CloneChunkRequest) ProtoMessage() {}
 
 func (x *CloneChunkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[37]
+	mi := &file_gfs_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2281,7 +2333,7 @@ func (x *CloneChunkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloneChunkRequest.ProtoReflect.Descriptor instead.
 func (*CloneChunkRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{37}
+	return file_gfs_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CloneChunkRequest) GetHandle() uint64 {
@@ -2305,6 +2357,74 @@ func (x *CloneChunkRequest) GetSource() string {
 	return ""
 }
 
+type CopyChunkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Handle        uint64                 `protobuf:"varint,1,opt,name=handle,proto3" json:"handle,omitempty"`
+	Version       uint64                 `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"` // the local replica must be at this version
+	NewHandle     uint64                 `protobuf:"varint,3,opt,name=new_handle,json=newHandle,proto3" json:"new_handle,omitempty"`
+	NewVersion    uint64                 `protobuf:"varint,4,opt,name=new_version,json=newVersion,proto3" json:"new_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CopyChunkRequest) Reset() {
+	*x = CopyChunkRequest{}
+	mi := &file_gfs_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CopyChunkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CopyChunkRequest) ProtoMessage() {}
+
+func (x *CopyChunkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gfs_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CopyChunkRequest.ProtoReflect.Descriptor instead.
+func (*CopyChunkRequest) Descriptor() ([]byte, []int) {
+	return file_gfs_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *CopyChunkRequest) GetHandle() uint64 {
+	if x != nil {
+		return x.Handle
+	}
+	return 0
+}
+
+func (x *CopyChunkRequest) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *CopyChunkRequest) GetNewHandle() uint64 {
+	if x != nil {
+		return x.NewHandle
+	}
+	return 0
+}
+
+func (x *CopyChunkRequest) GetNewVersion() uint64 {
+	if x != nil {
+		return x.NewVersion
+	}
+	return 0
+}
+
 type DeleteChunksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Handles       []uint64               `protobuf:"varint,1,rep,packed,name=handles,proto3" json:"handles,omitempty"`
@@ -2314,7 +2434,7 @@ type DeleteChunksRequest struct {
 
 func (x *DeleteChunksRequest) Reset() {
 	*x = DeleteChunksRequest{}
-	mi := &file_gfs_proto_msgTypes[38]
+	mi := &file_gfs_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2326,7 +2446,7 @@ func (x *DeleteChunksRequest) String() string {
 func (*DeleteChunksRequest) ProtoMessage() {}
 
 func (x *DeleteChunksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[38]
+	mi := &file_gfs_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2339,7 +2459,7 @@ func (x *DeleteChunksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteChunksRequest.ProtoReflect.Descriptor instead.
 func (*DeleteChunksRequest) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{38}
+	return file_gfs_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeleteChunksRequest) GetHandles() []uint64 {
@@ -2360,7 +2480,7 @@ type VerifyAllResponse struct {
 
 func (x *VerifyAllResponse) Reset() {
 	*x = VerifyAllResponse{}
-	mi := &file_gfs_proto_msgTypes[39]
+	mi := &file_gfs_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2372,7 +2492,7 @@ func (x *VerifyAllResponse) String() string {
 func (*VerifyAllResponse) ProtoMessage() {}
 
 func (x *VerifyAllResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[39]
+	mi := &file_gfs_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2385,7 +2505,7 @@ func (x *VerifyAllResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyAllResponse.ProtoReflect.Descriptor instead.
 func (*VerifyAllResponse) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{39}
+	return file_gfs_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *VerifyAllResponse) GetChunks() int64 {
@@ -2422,6 +2542,8 @@ type LogRecord struct {
 	//	*LogRecord_DeleteFile
 	//	*LogRecord_AddChunk
 	//	*LogRecord_SetVersion
+	//	*LogRecord_Snapshot
+	//	*LogRecord_ReplaceChunk
 	Op            isLogRecord_Op `protobuf_oneof:"op"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2429,7 +2551,7 @@ type LogRecord struct {
 
 func (x *LogRecord) Reset() {
 	*x = LogRecord{}
-	mi := &file_gfs_proto_msgTypes[40]
+	mi := &file_gfs_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2441,7 +2563,7 @@ func (x *LogRecord) String() string {
 func (*LogRecord) ProtoMessage() {}
 
 func (x *LogRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[40]
+	mi := &file_gfs_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2454,7 +2576,7 @@ func (x *LogRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRecord.ProtoReflect.Descriptor instead.
 func (*LogRecord) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{40}
+	return file_gfs_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *LogRecord) GetLsn() uint64 {
@@ -2523,6 +2645,24 @@ func (x *LogRecord) GetSetVersion() *SetVersionOp {
 	return nil
 }
 
+func (x *LogRecord) GetSnapshot() *SnapshotOp {
+	if x != nil {
+		if x, ok := x.Op.(*LogRecord_Snapshot); ok {
+			return x.Snapshot
+		}
+	}
+	return nil
+}
+
+func (x *LogRecord) GetReplaceChunk() *ReplaceChunkOp {
+	if x != nil {
+		if x, ok := x.Op.(*LogRecord_ReplaceChunk); ok {
+			return x.ReplaceChunk
+		}
+	}
+	return nil
+}
+
 type isLogRecord_Op interface {
 	isLogRecord_Op()
 }
@@ -2547,6 +2687,14 @@ type LogRecord_SetVersion struct {
 	SetVersion *SetVersionOp `protobuf:"bytes,14,opt,name=set_version,json=setVersion,proto3,oneof"`
 }
 
+type LogRecord_Snapshot struct {
+	Snapshot *SnapshotOp `protobuf:"bytes,15,opt,name=snapshot,proto3,oneof"`
+}
+
+type LogRecord_ReplaceChunk struct {
+	ReplaceChunk *ReplaceChunkOp `protobuf:"bytes,16,opt,name=replace_chunk,json=replaceChunk,proto3,oneof"`
+}
+
 func (*LogRecord_Mkdir) isLogRecord_Op() {}
 
 func (*LogRecord_CreateFile) isLogRecord_Op() {}
@@ -2557,6 +2705,10 @@ func (*LogRecord_AddChunk) isLogRecord_Op() {}
 
 func (*LogRecord_SetVersion) isLogRecord_Op() {}
 
+func (*LogRecord_Snapshot) isLogRecord_Op() {}
+
+func (*LogRecord_ReplaceChunk) isLogRecord_Op() {}
+
 type MkdirOp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -2566,7 +2718,7 @@ type MkdirOp struct {
 
 func (x *MkdirOp) Reset() {
 	*x = MkdirOp{}
-	mi := &file_gfs_proto_msgTypes[41]
+	mi := &file_gfs_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2578,7 +2730,7 @@ func (x *MkdirOp) String() string {
 func (*MkdirOp) ProtoMessage() {}
 
 func (x *MkdirOp) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[41]
+	mi := &file_gfs_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2591,7 +2743,7 @@ func (x *MkdirOp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MkdirOp.ProtoReflect.Descriptor instead.
 func (*MkdirOp) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{41}
+	return file_gfs_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *MkdirOp) GetPath() string {
@@ -2611,7 +2763,7 @@ type CreateFileOp struct {
 
 func (x *CreateFileOp) Reset() {
 	*x = CreateFileOp{}
-	mi := &file_gfs_proto_msgTypes[42]
+	mi := &file_gfs_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2623,7 +2775,7 @@ func (x *CreateFileOp) String() string {
 func (*CreateFileOp) ProtoMessage() {}
 
 func (x *CreateFileOp) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[42]
+	mi := &file_gfs_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2636,7 +2788,7 @@ func (x *CreateFileOp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileOp.ProtoReflect.Descriptor instead.
 func (*CreateFileOp) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{42}
+	return file_gfs_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateFileOp) GetPath() string {
@@ -2662,7 +2814,7 @@ type DeleteFileOp struct {
 
 func (x *DeleteFileOp) Reset() {
 	*x = DeleteFileOp{}
-	mi := &file_gfs_proto_msgTypes[43]
+	mi := &file_gfs_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2674,7 +2826,7 @@ func (x *DeleteFileOp) String() string {
 func (*DeleteFileOp) ProtoMessage() {}
 
 func (x *DeleteFileOp) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[43]
+	mi := &file_gfs_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2687,7 +2839,7 @@ func (x *DeleteFileOp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFileOp.ProtoReflect.Descriptor instead.
 func (*DeleteFileOp) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{43}
+	return file_gfs_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DeleteFileOp) GetPath() string {
@@ -2709,7 +2861,7 @@ type AddChunkOp struct {
 
 func (x *AddChunkOp) Reset() {
 	*x = AddChunkOp{}
-	mi := &file_gfs_proto_msgTypes[44]
+	mi := &file_gfs_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2721,7 +2873,7 @@ func (x *AddChunkOp) String() string {
 func (*AddChunkOp) ProtoMessage() {}
 
 func (x *AddChunkOp) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[44]
+	mi := &file_gfs_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2734,7 +2886,7 @@ func (x *AddChunkOp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddChunkOp.ProtoReflect.Descriptor instead.
 func (*AddChunkOp) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{44}
+	return file_gfs_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *AddChunkOp) GetPath() string {
@@ -2775,7 +2927,7 @@ type SetVersionOp struct {
 
 func (x *SetVersionOp) Reset() {
 	*x = SetVersionOp{}
-	mi := &file_gfs_proto_msgTypes[45]
+	mi := &file_gfs_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2787,7 +2939,7 @@ func (x *SetVersionOp) String() string {
 func (*SetVersionOp) ProtoMessage() {}
 
 func (x *SetVersionOp) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[45]
+	mi := &file_gfs_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2800,7 +2952,7 @@ func (x *SetVersionOp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetVersionOp.ProtoReflect.Descriptor instead.
 func (*SetVersionOp) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{45}
+	return file_gfs_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *SetVersionOp) GetHandle() uint64 {
@@ -2811,6 +2963,138 @@ func (x *SetVersionOp) GetHandle() uint64 {
 }
 
 func (x *SetVersionOp) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+// Duplicates the metadata of a file or directory tree. The copies share
+// the source's chunks, whose reference counts go up by one (§3.4).
+type SnapshotOp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	Target        string                 `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnapshotOp) Reset() {
+	*x = SnapshotOp{}
+	mi := &file_gfs_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnapshotOp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnapshotOp) ProtoMessage() {}
+
+func (x *SnapshotOp) ProtoReflect() protoreflect.Message {
+	mi := &file_gfs_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnapshotOp.ProtoReflect.Descriptor instead.
+func (*SnapshotOp) Descriptor() ([]byte, []int) {
+	return file_gfs_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *SnapshotOp) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *SnapshotOp) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+// Copy-on-write: chunk index of path stops referencing old_handle and
+// references new_handle, a fresh local copy of it (§3.4).
+type ReplaceChunkOp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Index         int64                  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
+	OldHandle     uint64                 `protobuf:"varint,3,opt,name=old_handle,json=oldHandle,proto3" json:"old_handle,omitempty"`
+	NewHandle     uint64                 `protobuf:"varint,4,opt,name=new_handle,json=newHandle,proto3" json:"new_handle,omitempty"`
+	Version       uint64                 `protobuf:"varint,5,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceChunkOp) Reset() {
+	*x = ReplaceChunkOp{}
+	mi := &file_gfs_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceChunkOp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceChunkOp) ProtoMessage() {}
+
+func (x *ReplaceChunkOp) ProtoReflect() protoreflect.Message {
+	mi := &file_gfs_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceChunkOp.ProtoReflect.Descriptor instead.
+func (*ReplaceChunkOp) Descriptor() ([]byte, []int) {
+	return file_gfs_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *ReplaceChunkOp) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ReplaceChunkOp) GetIndex() int64 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *ReplaceChunkOp) GetOldHandle() uint64 {
+	if x != nil {
+		return x.OldHandle
+	}
+	return 0
+}
+
+func (x *ReplaceChunkOp) GetNewHandle() uint64 {
+	if x != nil {
+		return x.NewHandle
+	}
+	return 0
+}
+
+func (x *ReplaceChunkOp) GetVersion() uint64 {
 	if x != nil {
 		return x.Version
 	}
@@ -2829,7 +3113,7 @@ type FileState struct {
 
 func (x *FileState) Reset() {
 	*x = FileState{}
-	mi := &file_gfs_proto_msgTypes[46]
+	mi := &file_gfs_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2841,7 +3125,7 @@ func (x *FileState) String() string {
 func (*FileState) ProtoMessage() {}
 
 func (x *FileState) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[46]
+	mi := &file_gfs_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2854,7 +3138,7 @@ func (x *FileState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileState.ProtoReflect.Descriptor instead.
 func (*FileState) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{46}
+	return file_gfs_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *FileState) GetPath() string {
@@ -2896,7 +3180,7 @@ type ChunkState struct {
 
 func (x *ChunkState) Reset() {
 	*x = ChunkState{}
-	mi := &file_gfs_proto_msgTypes[47]
+	mi := &file_gfs_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2908,7 +3192,7 @@ func (x *ChunkState) String() string {
 func (*ChunkState) ProtoMessage() {}
 
 func (x *ChunkState) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[47]
+	mi := &file_gfs_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2921,7 +3205,7 @@ func (x *ChunkState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChunkState.ProtoReflect.Descriptor instead.
 func (*ChunkState) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{47}
+	return file_gfs_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ChunkState) GetHandle() uint64 {
@@ -2958,7 +3242,7 @@ type Checkpoint struct {
 
 func (x *Checkpoint) Reset() {
 	*x = Checkpoint{}
-	mi := &file_gfs_proto_msgTypes[48]
+	mi := &file_gfs_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2970,7 +3254,7 @@ func (x *Checkpoint) String() string {
 func (*Checkpoint) ProtoMessage() {}
 
 func (x *Checkpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[48]
+	mi := &file_gfs_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2983,7 +3267,7 @@ func (x *Checkpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Checkpoint.ProtoReflect.Descriptor instead.
 func (*Checkpoint) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{48}
+	return file_gfs_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *Checkpoint) GetLsn() uint64 {
@@ -3034,7 +3318,7 @@ type ChunkMeta struct {
 
 func (x *ChunkMeta) Reset() {
 	*x = ChunkMeta{}
-	mi := &file_gfs_proto_msgTypes[49]
+	mi := &file_gfs_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3046,7 +3330,7 @@ func (x *ChunkMeta) String() string {
 func (*ChunkMeta) ProtoMessage() {}
 
 func (x *ChunkMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_gfs_proto_msgTypes[49]
+	mi := &file_gfs_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3059,7 +3343,7 @@ func (x *ChunkMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChunkMeta.ProtoReflect.Descriptor instead.
 func (*ChunkMeta) Descriptor() ([]byte, []int) {
-	return file_gfs_proto_rawDescGZIP(), []int{49}
+	return file_gfs_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ChunkMeta) GetHandle() uint64 {
@@ -3130,7 +3414,10 @@ const file_gfs_proto_rawDesc = "" +
 	"\fListResponse\x12(\n" +
 	"\aentries\x18\x01 \x03(\v2\x0e.gfs.ListEntryR\aentries\"!\n" +
 	"\vStatRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\x90\x01\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"A\n" +
+	"\x0fSnapshotRequest\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\"\x90\x01\n" +
 	"\fStatResponse\x12\x15\n" +
 	"\x06is_dir\x18\x01 \x01(\bR\x05isDir\x12\x1d\n" +
 	"\n" +
@@ -3264,13 +3551,20 @@ const file_gfs_proto_rawDesc = "" +
 	"\x11CloneChunkRequest\x12\x16\n" +
 	"\x06handle\x18\x01 \x01(\x04R\x06handle\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\x04R\aversion\x12\x16\n" +
-	"\x06source\x18\x03 \x01(\tR\x06source\"/\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\"\x84\x01\n" +
+	"\x10CopyChunkRequest\x12\x16\n" +
+	"\x06handle\x18\x01 \x01(\x04R\x06handle\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x04R\aversion\x12\x1d\n" +
+	"\n" +
+	"new_handle\x18\x03 \x01(\x04R\tnewHandle\x12\x1f\n" +
+	"\vnew_version\x18\x04 \x01(\x04R\n" +
+	"newVersion\"/\n" +
 	"\x13DeleteChunksRequest\x12\x18\n" +
 	"\ahandles\x18\x01 \x03(\x04R\ahandles\"_\n" +
 	"\x11VerifyAllResponse\x12\x16\n" +
 	"\x06chunks\x18\x01 \x01(\x03R\x06chunks\x12\x14\n" +
 	"\x05bytes\x18\x02 \x01(\x03R\x05bytes\x12\x1c\n" +
-	"\tcorrupted\x18\x03 \x03(\x04R\tcorrupted\"\xba\x02\n" +
+	"\tcorrupted\x18\x03 \x03(\x04R\tcorrupted\"\xa5\x03\n" +
 	"\tLogRecord\x12\x10\n" +
 	"\x03lsn\x18\x01 \x01(\x04R\x03lsn\x12\x1d\n" +
 	"\n" +
@@ -3283,7 +3577,9 @@ const file_gfs_proto_rawDesc = "" +
 	"deleteFile\x12.\n" +
 	"\tadd_chunk\x18\r \x01(\v2\x0f.gfs.AddChunkOpH\x00R\baddChunk\x124\n" +
 	"\vset_version\x18\x0e \x01(\v2\x11.gfs.SetVersionOpH\x00R\n" +
-	"setVersionB\x04\n" +
+	"setVersion\x12-\n" +
+	"\bsnapshot\x18\x0f \x01(\v2\x0f.gfs.SnapshotOpH\x00R\bsnapshot\x12:\n" +
+	"\rreplace_chunk\x18\x10 \x01(\v2\x13.gfs.ReplaceChunkOpH\x00R\freplaceChunkB\x04\n" +
 	"\x02op\"\x1d\n" +
 	"\aMkdirOp\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\"D\n" +
@@ -3300,7 +3596,19 @@ const file_gfs_proto_rawDesc = "" +
 	"\aversion\x18\x04 \x01(\x04R\aversion\"@\n" +
 	"\fSetVersionOp\x12\x16\n" +
 	"\x06handle\x18\x01 \x01(\x04R\x06handle\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\x04R\aversion\"\x83\x01\n" +
+	"\aversion\x18\x02 \x01(\x04R\aversion\"<\n" +
+	"\n" +
+	"SnapshotOp\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\"\x92\x01\n" +
+	"\x0eReplaceChunkOp\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
+	"\x05index\x18\x02 \x01(\x03R\x05index\x12\x1d\n" +
+	"\n" +
+	"old_handle\x18\x03 \x01(\x04R\toldHandle\x12\x1d\n" +
+	"\n" +
+	"new_handle\x18\x04 \x01(\x04R\tnewHandle\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\x04R\aversion\"\x83\x01\n" +
 	"\tFileState\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12 \n" +
 	"\vreplication\x18\x02 \x01(\x05R\vreplication\x12(\n" +
@@ -3323,7 +3631,7 @@ const file_gfs_proto_rawDesc = "" +
 	"\x06handle\x18\x01 \x01(\x04R\x06handle\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\x04R\aversion\x12\x16\n" +
 	"\x06length\x18\x03 \x01(\x03R\x06length\x12\x1b\n" +
-	"\tblock_crc\x18\x04 \x03(\aR\bblockCrc2\xcf\x05\n" +
+	"\tblock_crc\x18\x04 \x03(\aR\bblockCrc2\xfd\x05\n" +
 	"\x06Master\x12,\n" +
 	"\tGetConfig\x12\n" +
 	".gfs.Empty\x1a\x13.gfs.ConfigResponse\x12&\n" +
@@ -3336,7 +3644,9 @@ const file_gfs_proto_rawDesc = "" +
 	"DeleteFile\x12\x16.gfs.DeleteFileRequest\x1a\n" +
 	".gfs.Empty\x12+\n" +
 	"\x04List\x12\x10.gfs.ListRequest\x1a\x11.gfs.ListResponse\x12+\n" +
-	"\x04Stat\x12\x10.gfs.StatRequest\x1a\x11.gfs.StatResponse\x12R\n" +
+	"\x04Stat\x12\x10.gfs.StatRequest\x1a\x11.gfs.StatResponse\x12,\n" +
+	"\bSnapshot\x12\x14.gfs.SnapshotRequest\x1a\n" +
+	".gfs.Empty\x12R\n" +
 	"\x11GetChunkLocations\x12\x1d.gfs.GetChunkLocationsRequest\x1a\x1e.gfs.GetChunkLocationsResponse\x12I\n" +
 	"\x0eGetLeaseHolder\x12\x1a.gfs.GetLeaseHolderRequest\x1a\x1b.gfs.GetLeaseHolderResponse\x127\n" +
 	"\bRegister\x12\x14.gfs.RegisterRequest\x1a\x15.gfs.RegisterResponse\x12:\n" +
@@ -3345,7 +3655,7 @@ const file_gfs_proto_rawDesc = "" +
 	"\x0fFetchCheckpoint\x12\n" +
 	".gfs.Empty\x1a\x0f.gfs.Checkpoint\x127\n" +
 	"\rClusterStatus\x12\n" +
-	".gfs.Empty\x1a\x1a.gfs.ClusterStatusResponse2\xb8\x05\n" +
+	".gfs.Empty\x1a\x1a.gfs.ClusterStatusResponse2\xee\x05\n" +
 	"\vChunkServer\x127\n" +
 	"\bPushData\x12\x12.gfs.PushDataFrame\x1a\x15.gfs.PushDataResponse(\x01\x12&\n" +
 	"\x05Write\x12\x11.gfs.WriteRequest\x1a\n" +
@@ -3367,6 +3677,7 @@ const file_gfs_proto_rawDesc = "" +
 	".gfs.Empty\x126\n" +
 	"\n" +
 	"CloneChunk\x12\x16.gfs.CloneChunkRequest\x1a\x10.gfs.ChunkReport\x124\n" +
+	"\tCopyChunk\x12\x15.gfs.CopyChunkRequest\x1a\x10.gfs.ChunkReport\x124\n" +
 	"\fDeleteChunks\x12\x18.gfs.DeleteChunksRequest\x1a\n" +
 	".gfs.Empty\x12/\n" +
 	"\tVerifyAll\x12\n" +
@@ -3384,7 +3695,7 @@ func file_gfs_proto_rawDescGZIP() []byte {
 	return file_gfs_proto_rawDescData
 }
 
-var file_gfs_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
+var file_gfs_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_gfs_proto_goTypes = []any{
 	(*Empty)(nil),                     // 0: gfs.Empty
 	(*ChunkLocation)(nil),             // 1: gfs.ChunkLocation
@@ -3397,45 +3708,49 @@ var file_gfs_proto_goTypes = []any{
 	(*ListEntry)(nil),                 // 8: gfs.ListEntry
 	(*ListResponse)(nil),              // 9: gfs.ListResponse
 	(*StatRequest)(nil),               // 10: gfs.StatRequest
-	(*StatResponse)(nil),              // 11: gfs.StatResponse
-	(*GetChunkLocationsRequest)(nil),  // 12: gfs.GetChunkLocationsRequest
-	(*GetChunkLocationsResponse)(nil), // 13: gfs.GetChunkLocationsResponse
-	(*GetLeaseHolderRequest)(nil),     // 14: gfs.GetLeaseHolderRequest
-	(*GetLeaseHolderResponse)(nil),    // 15: gfs.GetLeaseHolderResponse
-	(*RegisterRequest)(nil),           // 16: gfs.RegisterRequest
-	(*RegisterResponse)(nil),          // 17: gfs.RegisterResponse
-	(*HeartbeatRequest)(nil),          // 18: gfs.HeartbeatRequest
-	(*LeaseExtension)(nil),            // 19: gfs.LeaseExtension
-	(*HeartbeatResponse)(nil),         // 20: gfs.HeartbeatResponse
-	(*StreamLogRequest)(nil),          // 21: gfs.StreamLogRequest
-	(*ServerStatus)(nil),              // 22: gfs.ServerStatus
-	(*ClusterStatusResponse)(nil),     // 23: gfs.ClusterStatusResponse
-	(*PushDataFrame)(nil),             // 24: gfs.PushDataFrame
-	(*PushDataResponse)(nil),          // 25: gfs.PushDataResponse
-	(*WriteRequest)(nil),              // 26: gfs.WriteRequest
-	(*ApplyMutationRequest)(nil),      // 27: gfs.ApplyMutationRequest
-	(*RecordAppendRequest)(nil),       // 28: gfs.RecordAppendRequest
-	(*RecordAppendResponse)(nil),      // 29: gfs.RecordAppendResponse
-	(*ReadRequest)(nil),               // 30: gfs.ReadRequest
-	(*DataFrame)(nil),                 // 31: gfs.DataFrame
-	(*ChunkInfoRequest)(nil),          // 32: gfs.ChunkInfoRequest
-	(*CreateChunkRequest)(nil),        // 33: gfs.CreateChunkRequest
-	(*SetVersionRequest)(nil),         // 34: gfs.SetVersionRequest
-	(*GrantLeaseRequest)(nil),         // 35: gfs.GrantLeaseRequest
-	(*RevokeLeaseRequest)(nil),        // 36: gfs.RevokeLeaseRequest
-	(*CloneChunkRequest)(nil),         // 37: gfs.CloneChunkRequest
-	(*DeleteChunksRequest)(nil),       // 38: gfs.DeleteChunksRequest
-	(*VerifyAllResponse)(nil),         // 39: gfs.VerifyAllResponse
-	(*LogRecord)(nil),                 // 40: gfs.LogRecord
-	(*MkdirOp)(nil),                   // 41: gfs.MkdirOp
-	(*CreateFileOp)(nil),              // 42: gfs.CreateFileOp
-	(*DeleteFileOp)(nil),              // 43: gfs.DeleteFileOp
-	(*AddChunkOp)(nil),                // 44: gfs.AddChunkOp
-	(*SetVersionOp)(nil),              // 45: gfs.SetVersionOp
-	(*FileState)(nil),                 // 46: gfs.FileState
-	(*ChunkState)(nil),                // 47: gfs.ChunkState
-	(*Checkpoint)(nil),                // 48: gfs.Checkpoint
-	(*ChunkMeta)(nil),                 // 49: gfs.ChunkMeta
+	(*SnapshotRequest)(nil),           // 11: gfs.SnapshotRequest
+	(*StatResponse)(nil),              // 12: gfs.StatResponse
+	(*GetChunkLocationsRequest)(nil),  // 13: gfs.GetChunkLocationsRequest
+	(*GetChunkLocationsResponse)(nil), // 14: gfs.GetChunkLocationsResponse
+	(*GetLeaseHolderRequest)(nil),     // 15: gfs.GetLeaseHolderRequest
+	(*GetLeaseHolderResponse)(nil),    // 16: gfs.GetLeaseHolderResponse
+	(*RegisterRequest)(nil),           // 17: gfs.RegisterRequest
+	(*RegisterResponse)(nil),          // 18: gfs.RegisterResponse
+	(*HeartbeatRequest)(nil),          // 19: gfs.HeartbeatRequest
+	(*LeaseExtension)(nil),            // 20: gfs.LeaseExtension
+	(*HeartbeatResponse)(nil),         // 21: gfs.HeartbeatResponse
+	(*StreamLogRequest)(nil),          // 22: gfs.StreamLogRequest
+	(*ServerStatus)(nil),              // 23: gfs.ServerStatus
+	(*ClusterStatusResponse)(nil),     // 24: gfs.ClusterStatusResponse
+	(*PushDataFrame)(nil),             // 25: gfs.PushDataFrame
+	(*PushDataResponse)(nil),          // 26: gfs.PushDataResponse
+	(*WriteRequest)(nil),              // 27: gfs.WriteRequest
+	(*ApplyMutationRequest)(nil),      // 28: gfs.ApplyMutationRequest
+	(*RecordAppendRequest)(nil),       // 29: gfs.RecordAppendRequest
+	(*RecordAppendResponse)(nil),      // 30: gfs.RecordAppendResponse
+	(*ReadRequest)(nil),               // 31: gfs.ReadRequest
+	(*DataFrame)(nil),                 // 32: gfs.DataFrame
+	(*ChunkInfoRequest)(nil),          // 33: gfs.ChunkInfoRequest
+	(*CreateChunkRequest)(nil),        // 34: gfs.CreateChunkRequest
+	(*SetVersionRequest)(nil),         // 35: gfs.SetVersionRequest
+	(*GrantLeaseRequest)(nil),         // 36: gfs.GrantLeaseRequest
+	(*RevokeLeaseRequest)(nil),        // 37: gfs.RevokeLeaseRequest
+	(*CloneChunkRequest)(nil),         // 38: gfs.CloneChunkRequest
+	(*CopyChunkRequest)(nil),          // 39: gfs.CopyChunkRequest
+	(*DeleteChunksRequest)(nil),       // 40: gfs.DeleteChunksRequest
+	(*VerifyAllResponse)(nil),         // 41: gfs.VerifyAllResponse
+	(*LogRecord)(nil),                 // 42: gfs.LogRecord
+	(*MkdirOp)(nil),                   // 43: gfs.MkdirOp
+	(*CreateFileOp)(nil),              // 44: gfs.CreateFileOp
+	(*DeleteFileOp)(nil),              // 45: gfs.DeleteFileOp
+	(*AddChunkOp)(nil),                // 46: gfs.AddChunkOp
+	(*SetVersionOp)(nil),              // 47: gfs.SetVersionOp
+	(*SnapshotOp)(nil),                // 48: gfs.SnapshotOp
+	(*ReplaceChunkOp)(nil),            // 49: gfs.ReplaceChunkOp
+	(*FileState)(nil),                 // 50: gfs.FileState
+	(*ChunkState)(nil),                // 51: gfs.ChunkState
+	(*Checkpoint)(nil),                // 52: gfs.Checkpoint
+	(*ChunkMeta)(nil),                 // 53: gfs.ChunkMeta
 }
 var file_gfs_proto_depIdxs = []int32{
 	8,  // 0: gfs.ListResponse.entries:type_name -> gfs.ListEntry
@@ -3443,72 +3758,78 @@ var file_gfs_proto_depIdxs = []int32{
 	1,  // 2: gfs.GetLeaseHolderResponse.chunk:type_name -> gfs.ChunkLocation
 	2,  // 3: gfs.RegisterRequest.chunks:type_name -> gfs.ChunkReport
 	2,  // 4: gfs.HeartbeatRequest.chunks:type_name -> gfs.ChunkReport
-	19, // 5: gfs.HeartbeatResponse.extended:type_name -> gfs.LeaseExtension
-	22, // 6: gfs.ClusterStatusResponse.servers:type_name -> gfs.ServerStatus
-	41, // 7: gfs.LogRecord.mkdir:type_name -> gfs.MkdirOp
-	42, // 8: gfs.LogRecord.create_file:type_name -> gfs.CreateFileOp
-	43, // 9: gfs.LogRecord.delete_file:type_name -> gfs.DeleteFileOp
-	44, // 10: gfs.LogRecord.add_chunk:type_name -> gfs.AddChunkOp
-	45, // 11: gfs.LogRecord.set_version:type_name -> gfs.SetVersionOp
-	46, // 12: gfs.Checkpoint.files:type_name -> gfs.FileState
-	47, // 13: gfs.Checkpoint.chunks:type_name -> gfs.ChunkState
-	0,  // 14: gfs.Master.GetConfig:input_type -> gfs.Empty
-	4,  // 15: gfs.Master.Mkdir:input_type -> gfs.MkdirRequest
-	5,  // 16: gfs.Master.CreateFile:input_type -> gfs.CreateFileRequest
-	6,  // 17: gfs.Master.DeleteFile:input_type -> gfs.DeleteFileRequest
-	7,  // 18: gfs.Master.List:input_type -> gfs.ListRequest
-	10, // 19: gfs.Master.Stat:input_type -> gfs.StatRequest
-	12, // 20: gfs.Master.GetChunkLocations:input_type -> gfs.GetChunkLocationsRequest
-	14, // 21: gfs.Master.GetLeaseHolder:input_type -> gfs.GetLeaseHolderRequest
-	16, // 22: gfs.Master.Register:input_type -> gfs.RegisterRequest
-	18, // 23: gfs.Master.Heartbeat:input_type -> gfs.HeartbeatRequest
-	21, // 24: gfs.Master.StreamLog:input_type -> gfs.StreamLogRequest
-	0,  // 25: gfs.Master.FetchCheckpoint:input_type -> gfs.Empty
-	0,  // 26: gfs.Master.ClusterStatus:input_type -> gfs.Empty
-	24, // 27: gfs.ChunkServer.PushData:input_type -> gfs.PushDataFrame
-	26, // 28: gfs.ChunkServer.Write:input_type -> gfs.WriteRequest
-	27, // 29: gfs.ChunkServer.ApplyMutation:input_type -> gfs.ApplyMutationRequest
-	28, // 30: gfs.ChunkServer.RecordAppend:input_type -> gfs.RecordAppendRequest
-	30, // 31: gfs.ChunkServer.Read:input_type -> gfs.ReadRequest
-	32, // 32: gfs.ChunkServer.ChunkInfo:input_type -> gfs.ChunkInfoRequest
-	33, // 33: gfs.ChunkServer.CreateChunk:input_type -> gfs.CreateChunkRequest
-	34, // 34: gfs.ChunkServer.SetVersion:input_type -> gfs.SetVersionRequest
-	35, // 35: gfs.ChunkServer.GrantLease:input_type -> gfs.GrantLeaseRequest
-	36, // 36: gfs.ChunkServer.RevokeLease:input_type -> gfs.RevokeLeaseRequest
-	37, // 37: gfs.ChunkServer.CloneChunk:input_type -> gfs.CloneChunkRequest
-	38, // 38: gfs.ChunkServer.DeleteChunks:input_type -> gfs.DeleteChunksRequest
-	0,  // 39: gfs.ChunkServer.VerifyAll:input_type -> gfs.Empty
-	3,  // 40: gfs.Master.GetConfig:output_type -> gfs.ConfigResponse
-	0,  // 41: gfs.Master.Mkdir:output_type -> gfs.Empty
-	0,  // 42: gfs.Master.CreateFile:output_type -> gfs.Empty
-	0,  // 43: gfs.Master.DeleteFile:output_type -> gfs.Empty
-	9,  // 44: gfs.Master.List:output_type -> gfs.ListResponse
-	11, // 45: gfs.Master.Stat:output_type -> gfs.StatResponse
-	13, // 46: gfs.Master.GetChunkLocations:output_type -> gfs.GetChunkLocationsResponse
-	15, // 47: gfs.Master.GetLeaseHolder:output_type -> gfs.GetLeaseHolderResponse
-	17, // 48: gfs.Master.Register:output_type -> gfs.RegisterResponse
-	20, // 49: gfs.Master.Heartbeat:output_type -> gfs.HeartbeatResponse
-	40, // 50: gfs.Master.StreamLog:output_type -> gfs.LogRecord
-	48, // 51: gfs.Master.FetchCheckpoint:output_type -> gfs.Checkpoint
-	23, // 52: gfs.Master.ClusterStatus:output_type -> gfs.ClusterStatusResponse
-	25, // 53: gfs.ChunkServer.PushData:output_type -> gfs.PushDataResponse
-	0,  // 54: gfs.ChunkServer.Write:output_type -> gfs.Empty
-	0,  // 55: gfs.ChunkServer.ApplyMutation:output_type -> gfs.Empty
-	29, // 56: gfs.ChunkServer.RecordAppend:output_type -> gfs.RecordAppendResponse
-	31, // 57: gfs.ChunkServer.Read:output_type -> gfs.DataFrame
-	2,  // 58: gfs.ChunkServer.ChunkInfo:output_type -> gfs.ChunkReport
-	0,  // 59: gfs.ChunkServer.CreateChunk:output_type -> gfs.Empty
-	0,  // 60: gfs.ChunkServer.SetVersion:output_type -> gfs.Empty
-	0,  // 61: gfs.ChunkServer.GrantLease:output_type -> gfs.Empty
-	0,  // 62: gfs.ChunkServer.RevokeLease:output_type -> gfs.Empty
-	2,  // 63: gfs.ChunkServer.CloneChunk:output_type -> gfs.ChunkReport
-	0,  // 64: gfs.ChunkServer.DeleteChunks:output_type -> gfs.Empty
-	39, // 65: gfs.ChunkServer.VerifyAll:output_type -> gfs.VerifyAllResponse
-	40, // [40:66] is the sub-list for method output_type
-	14, // [14:40] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	20, // 5: gfs.HeartbeatResponse.extended:type_name -> gfs.LeaseExtension
+	23, // 6: gfs.ClusterStatusResponse.servers:type_name -> gfs.ServerStatus
+	43, // 7: gfs.LogRecord.mkdir:type_name -> gfs.MkdirOp
+	44, // 8: gfs.LogRecord.create_file:type_name -> gfs.CreateFileOp
+	45, // 9: gfs.LogRecord.delete_file:type_name -> gfs.DeleteFileOp
+	46, // 10: gfs.LogRecord.add_chunk:type_name -> gfs.AddChunkOp
+	47, // 11: gfs.LogRecord.set_version:type_name -> gfs.SetVersionOp
+	48, // 12: gfs.LogRecord.snapshot:type_name -> gfs.SnapshotOp
+	49, // 13: gfs.LogRecord.replace_chunk:type_name -> gfs.ReplaceChunkOp
+	50, // 14: gfs.Checkpoint.files:type_name -> gfs.FileState
+	51, // 15: gfs.Checkpoint.chunks:type_name -> gfs.ChunkState
+	0,  // 16: gfs.Master.GetConfig:input_type -> gfs.Empty
+	4,  // 17: gfs.Master.Mkdir:input_type -> gfs.MkdirRequest
+	5,  // 18: gfs.Master.CreateFile:input_type -> gfs.CreateFileRequest
+	6,  // 19: gfs.Master.DeleteFile:input_type -> gfs.DeleteFileRequest
+	7,  // 20: gfs.Master.List:input_type -> gfs.ListRequest
+	10, // 21: gfs.Master.Stat:input_type -> gfs.StatRequest
+	11, // 22: gfs.Master.Snapshot:input_type -> gfs.SnapshotRequest
+	13, // 23: gfs.Master.GetChunkLocations:input_type -> gfs.GetChunkLocationsRequest
+	15, // 24: gfs.Master.GetLeaseHolder:input_type -> gfs.GetLeaseHolderRequest
+	17, // 25: gfs.Master.Register:input_type -> gfs.RegisterRequest
+	19, // 26: gfs.Master.Heartbeat:input_type -> gfs.HeartbeatRequest
+	22, // 27: gfs.Master.StreamLog:input_type -> gfs.StreamLogRequest
+	0,  // 28: gfs.Master.FetchCheckpoint:input_type -> gfs.Empty
+	0,  // 29: gfs.Master.ClusterStatus:input_type -> gfs.Empty
+	25, // 30: gfs.ChunkServer.PushData:input_type -> gfs.PushDataFrame
+	27, // 31: gfs.ChunkServer.Write:input_type -> gfs.WriteRequest
+	28, // 32: gfs.ChunkServer.ApplyMutation:input_type -> gfs.ApplyMutationRequest
+	29, // 33: gfs.ChunkServer.RecordAppend:input_type -> gfs.RecordAppendRequest
+	31, // 34: gfs.ChunkServer.Read:input_type -> gfs.ReadRequest
+	33, // 35: gfs.ChunkServer.ChunkInfo:input_type -> gfs.ChunkInfoRequest
+	34, // 36: gfs.ChunkServer.CreateChunk:input_type -> gfs.CreateChunkRequest
+	35, // 37: gfs.ChunkServer.SetVersion:input_type -> gfs.SetVersionRequest
+	36, // 38: gfs.ChunkServer.GrantLease:input_type -> gfs.GrantLeaseRequest
+	37, // 39: gfs.ChunkServer.RevokeLease:input_type -> gfs.RevokeLeaseRequest
+	38, // 40: gfs.ChunkServer.CloneChunk:input_type -> gfs.CloneChunkRequest
+	39, // 41: gfs.ChunkServer.CopyChunk:input_type -> gfs.CopyChunkRequest
+	40, // 42: gfs.ChunkServer.DeleteChunks:input_type -> gfs.DeleteChunksRequest
+	0,  // 43: gfs.ChunkServer.VerifyAll:input_type -> gfs.Empty
+	3,  // 44: gfs.Master.GetConfig:output_type -> gfs.ConfigResponse
+	0,  // 45: gfs.Master.Mkdir:output_type -> gfs.Empty
+	0,  // 46: gfs.Master.CreateFile:output_type -> gfs.Empty
+	0,  // 47: gfs.Master.DeleteFile:output_type -> gfs.Empty
+	9,  // 48: gfs.Master.List:output_type -> gfs.ListResponse
+	12, // 49: gfs.Master.Stat:output_type -> gfs.StatResponse
+	0,  // 50: gfs.Master.Snapshot:output_type -> gfs.Empty
+	14, // 51: gfs.Master.GetChunkLocations:output_type -> gfs.GetChunkLocationsResponse
+	16, // 52: gfs.Master.GetLeaseHolder:output_type -> gfs.GetLeaseHolderResponse
+	18, // 53: gfs.Master.Register:output_type -> gfs.RegisterResponse
+	21, // 54: gfs.Master.Heartbeat:output_type -> gfs.HeartbeatResponse
+	42, // 55: gfs.Master.StreamLog:output_type -> gfs.LogRecord
+	52, // 56: gfs.Master.FetchCheckpoint:output_type -> gfs.Checkpoint
+	24, // 57: gfs.Master.ClusterStatus:output_type -> gfs.ClusterStatusResponse
+	26, // 58: gfs.ChunkServer.PushData:output_type -> gfs.PushDataResponse
+	0,  // 59: gfs.ChunkServer.Write:output_type -> gfs.Empty
+	0,  // 60: gfs.ChunkServer.ApplyMutation:output_type -> gfs.Empty
+	30, // 61: gfs.ChunkServer.RecordAppend:output_type -> gfs.RecordAppendResponse
+	32, // 62: gfs.ChunkServer.Read:output_type -> gfs.DataFrame
+	2,  // 63: gfs.ChunkServer.ChunkInfo:output_type -> gfs.ChunkReport
+	0,  // 64: gfs.ChunkServer.CreateChunk:output_type -> gfs.Empty
+	0,  // 65: gfs.ChunkServer.SetVersion:output_type -> gfs.Empty
+	0,  // 66: gfs.ChunkServer.GrantLease:output_type -> gfs.Empty
+	0,  // 67: gfs.ChunkServer.RevokeLease:output_type -> gfs.Empty
+	2,  // 68: gfs.ChunkServer.CloneChunk:output_type -> gfs.ChunkReport
+	2,  // 69: gfs.ChunkServer.CopyChunk:output_type -> gfs.ChunkReport
+	0,  // 70: gfs.ChunkServer.DeleteChunks:output_type -> gfs.Empty
+	41, // 71: gfs.ChunkServer.VerifyAll:output_type -> gfs.VerifyAllResponse
+	44, // [44:72] is the sub-list for method output_type
+	16, // [16:44] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_gfs_proto_init() }
@@ -3516,12 +3837,14 @@ func file_gfs_proto_init() {
 	if File_gfs_proto != nil {
 		return
 	}
-	file_gfs_proto_msgTypes[40].OneofWrappers = []any{
+	file_gfs_proto_msgTypes[42].OneofWrappers = []any{
 		(*LogRecord_Mkdir)(nil),
 		(*LogRecord_CreateFile)(nil),
 		(*LogRecord_DeleteFile)(nil),
 		(*LogRecord_AddChunk)(nil),
 		(*LogRecord_SetVersion)(nil),
+		(*LogRecord_Snapshot)(nil),
+		(*LogRecord_ReplaceChunk)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3529,7 +3852,7 @@ func file_gfs_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gfs_proto_rawDesc), len(file_gfs_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   50,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

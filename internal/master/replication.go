@@ -168,32 +168,9 @@ func (m *Master) clone(h common.ChunkHandle, srcID, dstID string) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	m.mu.RLock()
-	primary, expiry := cs.primary, cs.leaseExpiry
-	var primaryAddr string
-	if s := m.servers[primary]; s != nil {
-		primaryAddr = s.addr
-	}
-	m.mu.RUnlock()
-	if primary != "" && time.Now().Before(expiry) {
-		revoked := false
-		if primaryAddr != "" {
-			if cli, err := m.csClient(primaryAddr); err == nil {
-				ctx, cancel := context.WithTimeout(m.ctx, rpcTimeout)
-				_, err = cli.RevokeLease(ctx, &pb.RevokeLeaseRequest{Handle: uint64(h)})
-				cancel()
-				revoked = err == nil
-			}
-		}
-		if !revoked {
-			if _, _, err := m.bumpVersion(h); err != nil {
-				m.log.Warn("clone: could not fence chunk", "chunk", h, "err", err)
-				return
-			}
-		}
-		m.mu.Lock()
-		cs.primary, cs.leaseExpiry = "", time.Time{}
-		m.mu.Unlock()
+	if err := m.revokeLease(h, cs); err != nil {
+		m.log.Warn("clone: could not fence chunk", "chunk", h, "err", err)
+		return
 	}
 
 	m.mu.RLock()

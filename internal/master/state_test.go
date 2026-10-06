@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/dhruv10050/Google-File-Sytem/api/gfspb"
+	"github.com/dhruv10050/Google-File-Sytem/internal/common"
 )
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -241,5 +242,76 @@ func TestOpLogTailFrom(t *testing.T) {
 	l.TrimTail(5)
 	if _, err := l.TailFrom(t.Context(), 3, 100); !errors.Is(err, ErrTooOld) {
 		t.Fatalf("TailFrom below trimmed tail: err = %v", err)
+	}
+}
+
+// Snapshot and copy-on-write records keep reference counts exact, survive a
+// checkpoint, and orphan a chunk only when its last reference goes.
+func TestStateSnapshot(t *testing.T) {
+	s := NewState()
+	applyAll(t, s, history()) // /a/f has chunks 1 and 2
+	recs := []*pb.LogRecord{
+		{Op: &pb.LogRecord_Snapshot{Snapshot: &pb.SnapshotOp{Source: "/a", Target: "/b"}}},
+		{Op: &pb.LogRecord_Snapshot{Snapshot: &pb.SnapshotOp{Source: "/a/f", Target: "/c"}}},
+		{Op: &pb.LogRecord_ReplaceChunk{ReplaceChunk: &pb.ReplaceChunkOp{Path: "/a/f", Index: 1, OldHandle: 2, NewHandle: 7, Version: 1}}},
+	}
+	for i, r := range recs {
+		r.Lsn = s.LSN + 1
+		if _, err := s.Apply(r); err != nil {
+			t.Fatalf("record %d: %v", i, err)
+		}
+	}
+	if !s.Dirs["/b"] || s.Files["/b/f"] == nil || s.Files["/c"] == nil {
+		t.Fatalf("snapshot namespace wrong: dirs=%v files=%v", s.Dirs, s.Files)
+	}
+	if s.Chunks[1].Refcount != 3 || s.Chunks[2].Refcount != 2 || s.Chunks[7].Refcount != 1 {
+		t.Fatalf("refcounts 1:%d 2:%d 7:%d", s.Chunks[1].Refcount, s.Chunks[2].Refcount, s.Chunks[7].Refcount)
+	}
+	if got := s.Files["/b/f"].Chunks; got[1] != 2 {
+		t.Fatalf("copy-on-write changed the snapshot: %v", got)
+	}
+	if s.NextHandle != 8 {
+		t.Fatalf("NextHandle = %d", s.NextHandle)
+	}
+	cp, err := StateFromCheckpoint(s.ToCheckpoint())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(cp.ToCheckpoint(), s.ToCheckpoint()) {
+		t.Fatal("checkpoint round trip changed the state")
+	}
+
+	del := func(p string) []common.ChunkHandle {
+		t.Helper()
+		orphaned, err := s.Apply(&pb.LogRecord{Lsn: s.LSN + 1, Op: &pb.LogRecord_DeleteFile{DeleteFile: &pb.DeleteFileOp{Path: p}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return orphaned
+	}
+	if o := del("/a/f"); len(o) != 1 || o[0] != 7 {
+		t.Fatalf("deleting /a/f orphaned %v, want [7]", o)
+	}
+	if o := del("/b/f"); len(o) != 0 {
+		t.Fatalf("deleting /b/f orphaned %v; /c still uses its chunks", o)
+	}
+	if o := del("/c"); len(o) != 2 {
+		t.Fatalf("deleting /c orphaned %v, want chunks 1 and 2", o)
+	}
+	if err := s.CheckInvariants(); err != nil {
+		t.Fatal(err)
+	}
+
+	bad := []*pb.LogRecord{
+		{Op: &pb.LogRecord_Snapshot{Snapshot: &pb.SnapshotOp{Source: "/nope", Target: "/x"}}},
+		{Op: &pb.LogRecord_Snapshot{Snapshot: &pb.SnapshotOp{Source: "/a", Target: "/b"}}},
+		{Op: &pb.LogRecord_Snapshot{Snapshot: &pb.SnapshotOp{Source: "/a", Target: "/a/x"}}},
+		{Op: &pb.LogRecord_ReplaceChunk{ReplaceChunk: &pb.ReplaceChunkOp{Path: "/a/f", Index: 0, OldHandle: 1, NewHandle: 9}}},
+	}
+	for i, r := range bad {
+		r.Lsn = s.LSN + 1
+		if _, err := s.Apply(r); err == nil {
+			t.Errorf("bad record %d accepted", i)
+		}
 	}
 }
