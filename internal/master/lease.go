@@ -67,6 +67,9 @@ func (m *Master) GetLeaseHolder(ctx context.Context, req *pb.GetLeaseHolderReque
 	if req.Index < 0 {
 		return nil, status.Error(codes.InvalidArgument, "negative chunk index")
 	}
+	// Read locks: a snapshot or deletion of the file (or a directory above
+	// it) waits for chunk allocation and copy-on-write to finish (§4.1).
+	defer m.ns.lockSet([]string{p}, nil)()
 	if InTrash(p) {
 		return nil, status.Errorf(codes.PermissionDenied, "%s is deleted: undelete it to write", p)
 	}

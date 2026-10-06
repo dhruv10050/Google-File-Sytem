@@ -41,9 +41,11 @@ func (m *Master) collectTrash(now time.Time) int {
 	n := 0
 	for _, p := range expired {
 		// Fails harmlessly if the file was undeleted or removed meanwhile.
+		unlock := m.ns.lockSet(nil, []string{p})
 		if err := m.commit(&pb.LogRecord{Op: &pb.LogRecord_DeleteFile{DeleteFile: &pb.DeleteFileOp{Path: p}}}); err == nil {
 			n++
 		}
+		unlock()
 	}
 	if n > 0 {
 		m.log.Info("garbage collected deleted files", "files", n)

@@ -197,3 +197,86 @@ func TestSnapshotDuringWrites(t *testing.T) {
 		t.Fatalf("only %d writes during the test", n)
 	}
 }
+
+// Snapshots of a directory race with writers appending blocks to files in
+// it (chunk allocation and copy-on-write), creates and deletes. Namespace
+// locks keep each snapshot a point-in-time copy: every file in it is a
+// whole-block prefix of what its writer wrote. Nothing deadlocks, and the
+// master recovers a consistent state afterwards.
+func TestSnapshotNamespaceRace(t *testing.T) {
+	c := Start(t, Options{ChunkServers: 4})
+	setup := c.Client()
+	setup.Mkdir("/d", false)
+	const block = 256 << 10
+	blockData := func(w, i int) []byte { return bytes.Repeat([]byte{byte(w*50 + i)}, block) }
+	var (
+		stop atomic.Bool
+		wg   sync.WaitGroup
+	)
+	for w := 0; w < 3; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cl := c.Client()
+			p := fmt.Sprintf("/d/w%d", w)
+			if err := cl.Create(p, 0); err != nil {
+				t.Error(err)
+				return
+			}
+			for i := 0; i < 40 && !stop.Load(); i++ {
+				if err := cl.Write(p, int64(i*block), blockData(w, i)); err != nil {
+					t.Errorf("write %s block %d: %v", p, i, err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cl := c.Client()
+		for i := 0; !stop.Load(); i++ {
+			p := fmt.Sprintf("/d/c%d", i)
+			if err := cl.Create(p, 0); err != nil {
+				t.Errorf("create %s: %v", p, err)
+				return
+			}
+			if i%2 == 0 {
+				if err := cl.Delete(p); err != nil {
+					t.Errorf("delete %s: %v", p, err)
+					return
+				}
+			}
+		}
+	}()
+	for k := 0; k < 6; k++ {
+		time.Sleep(80 * time.Millisecond)
+		if err := setup.Snapshot("/d", fmt.Sprintf("/s%d", k)); err != nil {
+			t.Fatalf("snapshot %d: %v", k, err)
+		}
+	}
+	stop.Store(true)
+	wg.Wait()
+
+	c.StopMaster()
+	c.StartMaster() // recovery verifies reference counts
+	c.WaitServers(3)
+	cl := c.Client()
+	for k := 0; k < 6; k++ {
+		for w := 0; w < 3; w++ {
+			p := fmt.Sprintf("/s%d/w%d", k, w)
+			if _, err := cl.Stat(p); errors.Is(err, client.ErrNotFound) {
+				continue // the snapshot predates the file
+			}
+			got := readAll(t, cl, p)
+			if len(got)%block != 0 {
+				t.Fatalf("%s: %d bytes, not whole blocks", p, len(got))
+			}
+			for i := 0; i < len(got)/block; i++ {
+				if !bytes.Equal(got[i*block:(i+1)*block], blockData(w, i)) {
+					t.Fatalf("%s block %d is wrong", p, i)
+				}
+			}
+		}
+	}
+}

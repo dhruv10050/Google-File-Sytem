@@ -36,6 +36,9 @@ func (m *Master) Snapshot(ctx context.Context, req *pb.SnapshotRequest) (*pb.Emp
 	if err != nil {
 		return nil, err
 	}
+	// Write locks on both paths keep creations, deletions, allocations and
+	// copy-on-writes under them out until the snapshot is logged (§4.1).
+	defer m.ns.lockSet(nil, []string{src, dst})()
 	rec := &pb.LogRecord{Op: &pb.LogRecord_Snapshot{Snapshot: &pb.SnapshotOp{Source: src, Target: dst}}}
 	for attempt := 0; ; attempt++ {
 		err := m.snapshotOnce(src, rec)

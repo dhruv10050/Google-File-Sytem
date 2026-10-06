@@ -131,6 +131,7 @@ type Master struct {
 	pending    map[common.ChunkHandle]bool
 	nextHandle uint64
 	fileAlloc  map[string]*sync.Mutex
+	ns         nsLocks
 
 	oplog      *OpLog
 	sinceCkpt  atomic.Int64
@@ -465,7 +466,9 @@ func (m *Master) Mkdir(ctx context.Context, req *pb.MkdirRequest) (*pb.Empty, er
 				continue
 			}
 		}
+		unlock := m.ns.lockSet(nil, []string{d})
 		err := m.commit(&pb.LogRecord{Op: &pb.LogRecord_Mkdir{Mkdir: &pb.MkdirOp{Path: d}}})
+		unlock()
 		if err != nil && !(req.Parents && status.Code(err) == codes.AlreadyExists) {
 			return nil, err
 		}
@@ -482,6 +485,7 @@ func (m *Master) CreateFile(ctx context.Context, req *pb.CreateFileRequest) (*pb
 	if r == 0 {
 		r = m.cfg.DefaultReplication
 	}
+	defer m.ns.lockSet(nil, []string{p})()
 	return &pb.Empty{}, m.commit(&pb.LogRecord{Op: &pb.LogRecord_CreateFile{CreateFile: &pb.CreateFileOp{Path: p, Replication: r}}})
 }
 
@@ -493,6 +497,7 @@ func (m *Master) DeleteFile(ctx context.Context, req *pb.DeleteFileRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
+	defer m.ns.lockSet(nil, []string{p})()
 	m.mu.RLock()
 	_, isFile := m.st.Files[p]
 	m.mu.RUnlock()
@@ -514,6 +519,9 @@ func (m *Master) Undelete(ctx context.Context, req *pb.UndeleteRequest) (*pb.Und
 		orig = f.DeletedFrom
 	}
 	m.mu.RUnlock()
+	if orig != "" {
+		defer m.ns.lockSet(nil, []string{p, orig})()
+	}
 	if err := m.commit(&pb.LogRecord{Op: &pb.LogRecord_RestoreFile{RestoreFile: &pb.RestoreFileOp{Hidden: p}}}); err != nil {
 		return nil, err
 	}
