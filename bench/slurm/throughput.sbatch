@@ -9,13 +9,16 @@
 #SBATCH --time=45:00
 #SBATCH --output=gfs-throughput-%j.out
 #
-# Read and write throughput vs. number of clients (paper §6.1.1–6.1.2),
-# plus raw network and disk baselines for the same nodes.
+# Read, write and record-append throughput vs. number of clients (paper
+# §6.1.1–6.1.3), plus raw network and disk baselines for the same nodes.
 #
 #   reads:  N clients each read READ_BYTES as random 4 MB regions of a
 #           DS_FILES x DS_BYTES dataset
 #   writes: N clients each write WRITE_BYTES to their own new file in
 #           OP_W-sized writes
+#   append: N clients each append APPEND_BYTES as APPEND_RECORD-sized records
+#           to one shared file; the file is then scanned to check that every
+#           acknowledged record is present
 #
 # Both run in two client modes: "avoid" (no replica on the client's own node
 # is read from or pushed to first, so every byte crosses the network) and
@@ -32,6 +35,8 @@ DS_BYTES=${DS_BYTES:-2G}
 READ_BYTES=${READ_BYTES:-2G}
 WRITE_BYTES=${WRITE_BYTES:-1G}
 OP_W=${OP_W:-1M}
+APPEND_BYTES=${APPEND_BYTES:-512M}
+APPEND_RECORD=${APPEND_RECORD:-1M}
 NET_SECS=${NET_SECS:-10}
 
 flag() { [ "$1" = avoid ] && echo -avoid-local || true; }
@@ -41,6 +46,7 @@ record_env
 {
 	echo "NS=$NS RUNS=$RUNS MODES=$MODES KINDS=$KINDS DS_FILES=$DS_FILES DS_BYTES=$DS_BYTES"
 	echo "READ_BYTES=$READ_BYTES WRITE_BYTES=$WRITE_BYTES OP_W=$OP_W NET_SECS=$NET_SECS"
+	echo "APPEND_BYTES=$APPEND_BYTES APPEND_RECORD=$APPEND_RECORD"
 } >>"$OUT/env.txt"
 
 # ── Baselines ────────────────────────────────────────────────────────────
@@ -89,6 +95,20 @@ for run in $(seq 1 "$RUNS"); do
 				tag=read-$mode-n$N-r$run
 				clients "$tag" "$N" read -masters "$MASTER" -files "$DS_FILES" -bytes "$READ_BYTES" -op 4M $(flag "$mode") || true
 				log "$tag: $(agg "$tag")"
+			fi
+			if [[ " $KINDS " == *" append "* ]]; then
+				tag=append-$mode-n$N-r$run
+				clients "$tag" "$N" append -masters "$MASTER" -path "/bench/a/$tag" -bytes "$APPEND_BYTES" -record "$APPEND_RECORD" $(flag "$mode") || true
+				log "$tag: $(agg "$tag")"
+				"$BIN/gfs-bench" scan -masters "$MASTER" -path "/bench/a/$tag" >"$OUT/raw/$tag.scan" 2>&1 || true
+				# every acknowledged record must be found: writer i acked records=k -> seq 0..k-1 present
+				awk -F, 'FNR==NR { split($7, a, "="); acked[$2] = a[2]; next }
+					$1 == "writer" { found[$2] = $3; ok[$2] = $4 }
+					$1 == "scan" { summary = $7 }
+					END { bad = 0; for (w in acked) if (found[w] < acked[w] || ok[w] != "true") bad++
+					      printf "scan: %s; writers missing records: %d\n", summary, bad }' \
+					"$OUT/raw/$tag.csv" "$OUT/raw/$tag.scan" | tee -a "$OUT/raw/$tag.scan"
+				"$BIN/gfs" -masters "$MASTER" rm "/bench/a/$tag" >/dev/null 2>&1 || true
 			fi
 			[[ " $KINDS " == *" write "* ]] || continue
 			tag=write-$mode-n$N-r$run

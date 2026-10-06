@@ -6,6 +6,8 @@
 //	gfs-bench net-send   -to host:9100 -seconds 10
 //	gfs-bench write      -masters M -path /bench/w0 -bytes 1G -op 8M [-avoid-local] [-start-at NS]
 //	gfs-bench read       -masters M -prefix /bench/ds/f -files 8 -bytes 2G -op 4M [-avoid-local] [-start-at NS]
+//	gfs-bench append     -masters M -path /bench/a/log -bytes 1G -record 1M [-avoid-local] [-start-at NS]
+//	gfs-bench scan       -masters M -path /bench/a/log
 //	gfs-bench verify     -masters M -prefix /bench/ds/f -files 8 [-all-replicas -replicas 3] [-id i -of n]
 //	gfs-bench watch      -masters M -expect-servers 3 [-interval 200ms] [-timeout 30m]
 //
@@ -20,11 +22,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"hash/crc32"
 	"hash/fnv"
 	"io"
 	"math/rand/v2"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,7 +41,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: gfs-bench <net-serve|net-send|write|read|verify|watch> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: gfs-bench <net-serve|net-send|write|read|append|scan|verify|watch> [flags]")
 		os.Exit(2)
 	}
 	cmd, args := os.Args[1], os.Args[2:]
@@ -51,6 +55,10 @@ func main() {
 		err = write(args)
 	case "read":
 		err = read(args)
+	case "append":
+		err = appendBench(args)
+	case "scan":
+		err = scan(args)
 	case "verify":
 		err = verify(args)
 	case "watch":
@@ -323,6 +331,142 @@ func read(args []string) error {
 		n += int64(m)
 	}
 	result("read", *cf.id, n, start, time.Now(), "")
+	return nil
+}
+
+// ───────────────────────── Record append ─────────────────────────
+
+// Records are self-describing so a reader can find them among padding,
+// duplicates and fragments of failed appends (§3.3):
+//
+//	magic[8] writer u32 seq u32 length u32 crc u32 reserved[8] payload
+//
+// length covers the whole record and is a multiple of 8, so records start at
+// 8-byte aligned offsets; crc covers the payload.
+const (
+	recMagic  = "GFSREC01"
+	recHeader = 32
+)
+
+func makeRecord(buf []byte, writer, seq uint32) {
+	p := buf[recHeader:]
+	fill(p, splitmix(uint64(writer)<<32|uint64(seq)), 0)
+	copy(buf, recMagic)
+	binary.LittleEndian.PutUint32(buf[8:], writer)
+	binary.LittleEndian.PutUint32(buf[12:], seq)
+	binary.LittleEndian.PutUint32(buf[16:], uint32(len(buf)))
+	binary.LittleEndian.PutUint32(buf[20:], crc32.Checksum(p, crc32.MakeTable(crc32.Castagnoli)))
+}
+
+func appendBench(args []string) error {
+	fs := flag.NewFlagSet("append", flag.ExitOnError)
+	cf := commonFlags(fs)
+	path := fs.String("path", "/bench/a/log", "file all clients append to (created if missing)")
+	var size, rec sizeFlag = 1 << 30, 1 << 20
+	fs.Var(&size, "bytes", "bytes to append")
+	fs.Var(&rec, "record", "record size (multiple of 8, at most chunk size / 4)")
+	fs.Parse(args)
+	if rec%8 != 0 || rec < recHeader+8 {
+		return errors.New("-record must be a multiple of 8 and at least 40")
+	}
+	c, err := newClient(*cf.masters, *cf.avoidLocal)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	c.Mkdir(common.Parent(*path), true)
+	if err := c.Create(*path, 0); err != nil && !strings.Contains(err.Error(), "exists") {
+		return err
+	}
+	n := int64(size) / int64(rec)
+	ch := make(chan []byte, 2)
+	go func() {
+		for i := int64(0); i < n; i++ {
+			b := make([]byte, rec)
+			makeRecord(b, uint32(*cf.id), uint32(i))
+			ch <- b
+		}
+		close(ch)
+	}()
+	waitUntil(*cf.startAt)
+	start := time.Now()
+	var done, bytes int64
+	for b := range ch {
+		if _, err := c.RecordAppend(*path, b); err != nil {
+			return fmt.Errorf("record %d: %w", done, err)
+		}
+		done++
+		bytes += int64(len(b))
+	}
+	result("append", *cf.id, bytes, start, time.Now(), fmt.Sprintf("records=%d", done))
+	return nil
+}
+
+// scan reads a record-append file sequentially and reports, per writer, how
+// many distinct records it found and whether they are exactly seq 0..n-1.
+// Duplicates (from retried appends) are counted but are not errors.
+func scan(args []string) error {
+	fs := flag.NewFlagSet("scan", flag.ExitOnError)
+	masters := fs.String("masters", "localhost:7000", "master addresses")
+	path := fs.String("path", "/bench/a/log", "file to scan")
+	fs.Parse(args)
+	c, err := newClient(*masters, false)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	start := time.Now()
+	tab := crc32.MakeTable(crc32.Castagnoli)
+	seen := map[uint32]map[uint32]int{}
+	var total, valid, skipped int64
+	cs := c.ChunkSize()
+	buf := make([]byte, cs)
+	for idx := int64(0); ; idx++ {
+		n, err := c.ReadAt(*path, buf, idx*cs)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		total += int64(n)
+		b := buf[:n]
+		for p := 0; p+recHeader <= len(b); {
+			l := int(binary.LittleEndian.Uint32(b[p+16:]))
+			if string(b[p:p+8]) == recMagic && l > recHeader && l%8 == 0 && p+l <= len(b) &&
+				crc32.Checksum(b[p+recHeader:p+l], tab) == binary.LittleEndian.Uint32(b[p+20:]) {
+				w, s := binary.LittleEndian.Uint32(b[p+8:]), binary.LittleEndian.Uint32(b[p+12:])
+				if seen[w] == nil {
+					seen[w] = map[uint32]int{}
+				}
+				seen[w][s]++
+				valid += int64(l)
+				p += l
+				continue
+			}
+			skipped += 8
+			p += 8
+		}
+		if err == io.EOF || n < len(buf) {
+			break
+		}
+	}
+	var writers []uint32
+	for w := range seen {
+		writers = append(writers, w)
+	}
+	slices.Sort(writers)
+	var records, dups int
+	for _, w := range writers {
+		d, contiguous := 0, true
+		for s, k := range seen[w] {
+			if int(s) >= len(seen[w]) {
+				contiguous = false
+			}
+			d++
+			dups += k - 1
+		}
+		records += d
+		fmt.Printf("writer,%d,%d,%t\n", w, d, contiguous)
+	}
+	result("scan", 0, total, start, time.Now(), fmt.Sprintf("writers=%d;records=%d;duplicates=%d;record_bytes=%d;other_bytes=%d", len(writers), records, dups, valid, skipped))
 	return nil
 }
 

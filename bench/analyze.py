@@ -50,16 +50,18 @@ def throughput(raw, jobs, out):
         env = open(os.path.join(d, "env.txt")).read()
         m = re.search(r"OP_W=(\S+)", env)
         op_w = m.group(1) if m else "1M"
+        m = re.search(r"APPEND_RECORD=(\S+)", env)
+        op_a = m.group(1) if m else "1M"
         for f in sorted(glob.glob(os.path.join(d, "raw", "*.csv"))):
             name = os.path.basename(f)[:-4]
-            m = re.fullmatch(r"(read|write)-(avoid|local)-n(\d+)-r(\d+)", name)
+            m = re.fullmatch(r"(read|write|append)-(avoid|local)-n(\d+)-r(\d+)", name)
             rows = load(f)
             if m and rows:
                 kind, mode, n, run = m.group(1), m.group(2), int(m.group(3)), int(m.group(4))
                 if len(rows) != n:
                     print(f"skip {job}/{name}: {len(rows)} of {n} clients finished")
                     continue
-                op = "4M" if kind == "read" else op_w
+                op = {"read": "4M", "write": op_w, "append": op_a}[kind]
                 runs.append((job, kind, mode, op, n, run, *aggregate(rows)))
             elif name in ("net-pair", "net-ring") and rows:
                 per = [int(r[3]) / MB / ((int(r[5]) - int(r[4])) / 1e9) for r in rows]
@@ -106,6 +108,8 @@ def limit(kind, mode, n, nic):
     client_nodes = min(n, ALL_NODES)
     if kind == "read":  # each byte leaves one chunkserver NIC, enters one client NIC
         return nic * min(client_nodes, CS_NODES)
+    if kind == "append":  # every client appends to the same chunk: its 3 replicas each receive every byte
+        return min(nic * client_nodes, nic)
     # each byte enters 3 chunkserver NICs (client -> r1 -> r2 -> r3)
     return min(nic * client_nodes, nic * CS_NODES / 3)
 
@@ -127,8 +131,9 @@ def plot(summary, nic, out):
     except ImportError:
         print("matplotlib not available; skipping plots")
         return
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
-    for ax, kind in zip(axes, ("read", "write")):
+    kinds = [k for k in ("read", "write", "append") if any(s[0] == k for s in summary)]
+    fig, axes = plt.subplots(1, len(kinds), figsize=(5.5 * len(kinds), 4.2), squeeze=False)
+    for ax, kind in zip(axes[0], kinds):
         series = sorted({(s[1], s[2]) for s in summary if s[0] == kind}, key=lambda x: (x[0], -opbytes(x[1])))
         for mode, op in series:
             style = ("o-" if mode == "avoid" else "s--") if op in ("4M", "8M") else "^:"
