@@ -22,8 +22,8 @@ source "$(dirname "$0")/lib.sh" 2>/dev/null || source "$HOME/gfs/slurm/lib.sh"
 
 NS=${NS:-"1 5 10 20 40 80"}
 RUNS=${RUNS:-3}
-OPS=${OPS:-3000}       # operations per phase, split over the clients...
-MIN_OPS=${MIN_OPS:-200} # ...but at least this many per client
+OPS=${OPS:-20000}       # operations per phase, split over the clients...
+MIN_OPS=${MIN_OPS:-1000} # ...but at least this many per client
 
 CLIENT_NODES=("${CSNODES[@]}")
 resolve_ips
