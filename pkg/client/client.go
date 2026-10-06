@@ -34,8 +34,10 @@ type Options struct {
 	LocationTTL time.Duration // chunk-location cache lifetime; default 60 s
 	Retries     int           // attempts per chunk mutation; default 6
 	RPCTimeout  time.Duration
-	// NoLocalReplica disables the same-host read preference (benchmarks).
-	NoLocalReplica bool
+	// AvoidLocal makes every byte cross the network (benchmarks): reads
+	// prefer replicas on other hosts, and a replica on this host is placed
+	// last in the push chain so it receives data from a remote hop.
+	AvoidLocal bool
 }
 
 type Client struct {
@@ -353,31 +355,41 @@ func distance(a, b net.IP) int {
 	return 128 - n
 }
 
-// orderReplicas sorts read candidates: a same-host replica first (unless
-// disabled), then the rest in random order to spread load.
+// orderReplicas sorts read candidates: a same-host replica first (last
+// with AvoidLocal), the rest in random order to spread load.
 func (c *Client) orderReplicas(addrs []string) []string {
 	out := append([]string(nil), addrs...)
 	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
-	if !c.opt.NoLocalReplica {
-		sort.SliceStable(out, func(i, j int) bool { return c.isLocal(out[i]) && !c.isLocal(out[j]) })
-	}
+	sort.SliceStable(out, func(i, j int) bool {
+		li, lj := c.isLocal(out[i]), c.isLocal(out[j])
+		if c.opt.AvoidLocal {
+			return !li && lj
+		}
+		return li && !lj
+	})
 	return out
 }
 
 // chainOrder builds the data-push chain (§3.2): each hop forwards to the
 // closest replica that has not received the data yet, starting from the
-// client itself.
+// client itself (with AvoidLocal, a same-host replica goes last instead).
 func (c *Client) chainOrder(addrs []string) []string {
-	rest := append([]string(nil), addrs...)
-	var out []string
-	var cur net.IP
-	for i := range rest {
-		if c.isLocal(rest[i]) {
-			out = append(out, rest[i])
-			cur = hostIP(rest[i])
-			rest = append(rest[:i], rest[i+1:]...)
-			break
+	var rest, local []string
+	for _, a := range addrs {
+		if c.isLocal(a) {
+			local = append(local, a)
+		} else {
+			rest = append(rest, a)
 		}
+	}
+	var out, tail []string
+	var cur net.IP
+	if c.opt.AvoidLocal {
+		tail = local
+	} else if len(local) > 0 {
+		out = append(out, local[0])
+		cur = hostIP(local[0])
+		rest = append(rest, local[1:]...)
 	}
 	for len(rest) > 0 {
 		best := 0
@@ -392,7 +404,7 @@ func (c *Client) chainOrder(addrs []string) []string {
 		cur = hostIP(rest[best])
 		rest = append(rest[:best], rest[best+1:]...)
 	}
-	return out
+	return append(out, tail...)
 }
 
 func newDataID() string {
