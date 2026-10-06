@@ -42,6 +42,12 @@ type Config struct {
 
 	CheckpointEveryRecords int
 
+	// Garbage collection (§4.4): deleted files stay under a hidden name for
+	// TrashRetention (default 3 days, as in the paper; negative deletes at
+	// once), checked every GCInterval.
+	TrashRetention time.Duration
+	GCInterval     time.Duration
+
 	// Shadow mode (§5.1.3): follow PrimaryAddr's operation log, serve reads only.
 	Shadow      bool
 	PrimaryAddr string
@@ -74,6 +80,12 @@ func (c *Config) setDefaults() {
 	}
 	if c.MaxClonesPerServer == 0 {
 		c.MaxClonesPerServer = 4
+	}
+	if c.TrashRetention == 0 {
+		c.TrashRetention = 72 * time.Hour
+	}
+	if c.GCInterval == 0 {
+		c.GCInterval = time.Minute
 	}
 	if c.CheckpointEveryRecords == 0 {
 		c.CheckpointEveryRecords = 50000
@@ -239,6 +251,7 @@ func (m *Master) Start() error {
 		m.goLoop(m.followPrimary)
 	} else {
 		m.goLoop(m.replicationLoop)
+		m.goLoop(m.gcLoop)
 	}
 	m.log.Info("master started", "addr", m.addr, "shadow", m.cfg.Shadow)
 	return nil
@@ -472,12 +485,39 @@ func (m *Master) CreateFile(ctx context.Context, req *pb.CreateFileRequest) (*pb
 	return &pb.Empty{}, m.commit(&pb.LogRecord{Op: &pb.LogRecord_CreateFile{CreateFile: &pb.CreateFileOp{Path: p, Replication: r}}})
 }
 
+// DeleteFile removes an empty directory at once, but only renames a file to
+// a hidden name (§4.4.1); gcLoop reclaims it later. Deleting a hidden file
+// removes it immediately.
 func (m *Master) DeleteFile(ctx context.Context, req *pb.DeleteFileRequest) (*pb.Empty, error) {
 	p, err := cleanPath(req.Path)
 	if err != nil {
 		return nil, err
 	}
+	m.mu.RLock()
+	_, isFile := m.st.Files[p]
+	m.mu.RUnlock()
+	if isFile && !InTrash(p) && m.cfg.TrashRetention > 0 {
+		return &pb.Empty{}, m.commit(&pb.LogRecord{Op: &pb.LogRecord_TrashFile{TrashFile: &pb.TrashFileOp{Path: p}}})
+	}
 	return &pb.Empty{}, m.commit(&pb.LogRecord{Op: &pb.LogRecord_DeleteFile{DeleteFile: &pb.DeleteFileOp{Path: p}}})
+}
+
+// Undelete moves a hidden file back to where it was deleted from.
+func (m *Master) Undelete(ctx context.Context, req *pb.UndeleteRequest) (*pb.UndeleteResponse, error) {
+	p, err := cleanPath(req.Path)
+	if err != nil {
+		return nil, err
+	}
+	m.mu.RLock()
+	var orig string
+	if f := m.st.Files[p]; f != nil {
+		orig = f.DeletedFrom
+	}
+	m.mu.RUnlock()
+	if err := m.commit(&pb.LogRecord{Op: &pb.LogRecord_RestoreFile{RestoreFile: &pb.RestoreFileOp{Hidden: p}}}); err != nil {
+		return nil, err
+	}
+	return &pb.UndeleteResponse{Path: orig}, nil
 }
 
 func (m *Master) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
@@ -525,6 +565,11 @@ func (m *Master) ClusterStatus(ctx context.Context, _ *pb.Empty) (*pb.ClusterSta
 		NumFiles: int64(len(m.st.Files)), NumChunks: int64(len(m.st.Chunks)),
 		AppliedLsn: m.st.LSN, IsShadow: m.cfg.Shadow,
 		ClonesInFlight: m.clonesBusy.Load(), ClonesCompleted: m.clonesDone.Load(),
+	}
+	for p := range m.st.Files {
+		if InTrash(p) {
+			resp.DeletedFiles++
+		}
 	}
 	for _, s := range m.servers {
 		resp.Servers = append(resp.Servers, &pb.ServerStatus{

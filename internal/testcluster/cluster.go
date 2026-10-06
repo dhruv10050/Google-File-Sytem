@@ -31,6 +31,8 @@ type Options struct {
 	Lease                  time.Duration
 	Heartbeat              time.Duration
 	CheckpointEveryRecords int
+	TrashRetention         time.Duration // 0 = master default (3 days)
+	GCInterval             time.Duration
 	Verbose                bool // log to stderr instead of discarding
 }
 
@@ -107,7 +109,8 @@ func (c *Cluster) masterConfig(shadow bool) master.Config {
 		ChunkSize: c.opt.ChunkSize, DefaultReplication: c.opt.Replication,
 		LeaseDuration: c.opt.Lease, HeartbeatInterval: c.opt.Heartbeat,
 		CheckpointEveryRecords: c.opt.CheckpointEveryRecords,
-		Shadow:                 shadow, PrimaryAddr: c.MasterAddr,
+		TrashRetention:         c.opt.TrashRetention, GCInterval: c.opt.GCInterval,
+		Shadow: shadow, PrimaryAddr: c.MasterAddr,
 	}
 }
 

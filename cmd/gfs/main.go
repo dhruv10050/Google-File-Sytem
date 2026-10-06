@@ -31,7 +31,9 @@ commands:
   write <file> <offset> [local]    write a local file (or stdin) at offset
   append <file> [local]            append a local file (or stdin) as one record; prints its offset
   read <file> <offset> <length>    read a byte range to stdout
-  rm <path>                        delete a file or an empty directory
+  rm <path>                        delete a file (kept under /.deleted until garbage
+                                   collected) or an empty directory
+  undelete <hidden>                restore a deleted file, e.g. /.deleted/<time>-<lsn>-<name>
   snapshot <src> <dst>             copy-on-write copy of a file or directory tree
   status                           show cluster status
 `
@@ -87,6 +89,9 @@ func run(c *client.Client, cmd string, args []string) error {
 		for _, e := range ents {
 			if e.IsDir {
 				fmt.Fprintf(w, "d\t%s/\t\n", e.Name)
+			} else if e.DeletedFrom != "" {
+				fmt.Fprintf(w, "-\t%s\t%d chunks\tdeleted from %s at %s\n", e.Name, e.NumChunks, e.DeletedFrom,
+					time.Unix(0, e.DeletedUnixNanos).Format(time.DateTime))
 			} else {
 				fmt.Fprintf(w, "-\t%s\t%d chunks\n", e.Name, e.NumChunks)
 			}
@@ -231,6 +236,18 @@ func run(c *client.Client, cmd string, args []string) error {
 		}
 		return c.Delete(fs.Arg(0))
 
+	case "undelete":
+		fs.Parse(args)
+		if err := need(fs, 1); err != nil {
+			return err
+		}
+		orig, err := c.Undelete(fs.Arg(0))
+		if err != nil {
+			return err
+		}
+		fmt.Println(orig)
+		return nil
+
 	case "snapshot":
 		fs.Parse(args)
 		if err := need(fs, 2); err != nil {
@@ -247,8 +264,8 @@ func run(c *client.Client, cmd string, args []string) error {
 		if st.IsShadow {
 			role = "shadow"
 		}
-		fmt.Printf("master: %s (applied lsn %d)\nfiles: %d  chunks: %d  under-replicated: %d\nclones: %d in flight, %d completed\nreplica histogram (index = live replicas): %v\n\n",
-			role, st.AppliedLsn, st.NumFiles, st.NumChunks, st.UnderReplicated, st.ClonesInFlight, st.ClonesCompleted, st.ReplicaHistogram)
+		fmt.Printf("master: %s (applied lsn %d)\nfiles: %d (%d deleted, awaiting GC)  chunks: %d  under-replicated: %d\nclones: %d in flight, %d completed\nreplica histogram (index = live replicas): %v\n\n",
+			role, st.AppliedLsn, st.NumFiles, st.DeletedFiles, st.NumChunks, st.UnderReplicated, st.ClonesInFlight, st.ClonesCompleted, st.ReplicaHistogram)
 		w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
 		fmt.Fprintln(w, "SERVER\tADDRESS\tCHUNKS\tUSED\tFREE\tLAST HB")
 		for _, s := range st.Servers {

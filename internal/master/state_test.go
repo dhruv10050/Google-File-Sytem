@@ -315,3 +315,42 @@ func TestStateSnapshot(t *testing.T) {
 		}
 	}
 }
+
+// Lazy deletion moves a file into the trash without touching its chunks;
+// restoring moves it back. Both survive a checkpoint.
+func TestStateTrash(t *testing.T) {
+	s := NewState()
+	applyAll(t, s, history())
+	trash := &pb.LogRecord{Lsn: s.LSN + 1, UnixNanos: 5000, Op: &pb.LogRecord_TrashFile{TrashFile: &pb.TrashFileOp{Path: "/a/f"}}}
+	if o, err := s.Apply(trash); err != nil || len(o) != 0 {
+		t.Fatalf("trash: orphaned %v, err %v", o, err)
+	}
+	hidden := TrashName("/a/f", trash)
+	if f := s.Files[hidden]; f == nil || f.DeletedFrom != "/a/f" || f.Deleted != 5000 || s.Files["/a/f"] != nil {
+		t.Fatalf("hidden file %s: %+v", hidden, f)
+	}
+	if s.Chunks[1].Refcount != 1 {
+		t.Fatal("trashing changed reference counts")
+	}
+	cp, err := StateFromCheckpoint(s.ToCheckpoint())
+	if err != nil || !proto.Equal(cp.ToCheckpoint(), s.ToCheckpoint()) {
+		t.Fatalf("checkpoint round trip: %v", err)
+	}
+	for i, op := range []*pb.LogRecord{
+		{Op: &pb.LogRecord_TrashFile{TrashFile: &pb.TrashFileOp{Path: hidden}}},                             // already deleted
+		{Op: &pb.LogRecord_Mkdir{Mkdir: &pb.MkdirOp{Path: TrashDir + "/x"}}},                                // reserved
+		{Op: &pb.LogRecord_RestoreFile{RestoreFile: &pb.RestoreFileOp{Hidden: "/a"}}},                       // not in trash
+		{Op: &pb.LogRecord_CreateFile{CreateFile: &pb.CreateFileOp{Path: TrashDir + "/y", Replication: 1}}}, // reserved
+	} {
+		op.Lsn = s.LSN + 1
+		if _, err := s.Apply(op); err == nil {
+			t.Errorf("bad record %d accepted", i)
+		}
+	}
+	if _, err := s.Apply(&pb.LogRecord{Lsn: s.LSN + 1, Op: &pb.LogRecord_RestoreFile{RestoreFile: &pb.RestoreFileOp{Hidden: hidden}}}); err != nil {
+		t.Fatal(err)
+	}
+	if f := s.Files["/a/f"]; f == nil || f.DeletedFrom != "" || f.Deleted != 0 || s.Files[hidden] != nil {
+		t.Fatalf("restore: %+v", f)
+	}
+}

@@ -29,6 +29,7 @@ const (
 	Master_List_FullMethodName              = "/gfs.Master/List"
 	Master_Stat_FullMethodName              = "/gfs.Master/Stat"
 	Master_Snapshot_FullMethodName          = "/gfs.Master/Snapshot"
+	Master_Undelete_FullMethodName          = "/gfs.Master/Undelete"
 	Master_GetChunkLocations_FullMethodName = "/gfs.Master/GetChunkLocations"
 	Master_GetLeaseHolder_FullMethodName    = "/gfs.Master/GetLeaseHolder"
 	Master_Register_FullMethodName          = "/gfs.Master/Register"
@@ -52,6 +53,8 @@ type MasterClient interface {
 	Stat(ctx context.Context, in *StatRequest, opts ...grpc.CallOption) (*StatResponse, error)
 	// Copy-on-write snapshot of a file or directory tree (§3.4).
 	Snapshot(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Restore a deleted file from its hidden name under /.deleted (§4.4).
+	Undelete(ctx context.Context, in *UndeleteRequest, opts ...grpc.CallOption) (*UndeleteResponse, error)
 	// Chunk metadata (§2.4, §3.1).
 	GetChunkLocations(ctx context.Context, in *GetChunkLocationsRequest, opts ...grpc.CallOption) (*GetChunkLocationsResponse, error)
 	GetLeaseHolder(ctx context.Context, in *GetLeaseHolderRequest, opts ...grpc.CallOption) (*GetLeaseHolderResponse, error)
@@ -137,6 +140,16 @@ func (c *masterClient) Snapshot(ctx context.Context, in *SnapshotRequest, opts .
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, Master_Snapshot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterClient) Undelete(ctx context.Context, in *UndeleteRequest, opts ...grpc.CallOption) (*UndeleteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UndeleteResponse)
+	err := c.cc.Invoke(ctx, Master_Undelete_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +249,8 @@ type MasterServer interface {
 	Stat(context.Context, *StatRequest) (*StatResponse, error)
 	// Copy-on-write snapshot of a file or directory tree (§3.4).
 	Snapshot(context.Context, *SnapshotRequest) (*Empty, error)
+	// Restore a deleted file from its hidden name under /.deleted (§4.4).
+	Undelete(context.Context, *UndeleteRequest) (*UndeleteResponse, error)
 	// Chunk metadata (§2.4, §3.1).
 	GetChunkLocations(context.Context, *GetChunkLocationsRequest) (*GetChunkLocationsResponse, error)
 	GetLeaseHolder(context.Context, *GetLeaseHolderRequest) (*GetLeaseHolderResponse, error)
@@ -277,6 +292,9 @@ func (UnimplementedMasterServer) Stat(context.Context, *StatRequest) (*StatRespo
 }
 func (UnimplementedMasterServer) Snapshot(context.Context, *SnapshotRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Snapshot not implemented")
+}
+func (UnimplementedMasterServer) Undelete(context.Context, *UndeleteRequest) (*UndeleteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Undelete not implemented")
 }
 func (UnimplementedMasterServer) GetChunkLocations(context.Context, *GetChunkLocationsRequest) (*GetChunkLocationsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetChunkLocations not implemented")
@@ -446,6 +464,24 @@ func _Master_Snapshot_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Master_Undelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UndeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServer).Undelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Master_Undelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServer).Undelete(ctx, req.(*UndeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Master_GetChunkLocations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetChunkLocationsRequest)
 	if err := dec(in); err != nil {
@@ -599,6 +635,10 @@ var Master_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Snapshot",
 			Handler:    _Master_Snapshot_Handler,
+		},
+		{
+			MethodName: "Undelete",
+			Handler:    _Master_Undelete_Handler,
 		},
 		{
 			MethodName: "GetChunkLocations",

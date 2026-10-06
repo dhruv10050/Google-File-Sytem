@@ -163,6 +163,21 @@ func (c *Client) Delete(path string) error {
 	})
 }
 
+// Undelete restores a deleted file from its hidden name under /.deleted
+// and returns the path it was restored to.
+func (c *Client) Undelete(hidden string) (string, error) {
+	var resp *pb.UndeleteResponse
+	err := c.writeMaster(func(ctx context.Context, m pb.MasterClient) (err error) {
+		resp, err = m.Undelete(ctx, &pb.UndeleteRequest{Path: hidden})
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	c.invalidate(resp.Path)
+	return resp.Path, nil
+}
+
 // Snapshot makes dst a copy-on-write copy of the file or directory src
 // (§3.4). It takes about as long as a metadata operation; chunks are copied
 // later, the first time either side mutates them.

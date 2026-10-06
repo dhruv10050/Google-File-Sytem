@@ -82,7 +82,7 @@ func (c *Client) writeChunk(path string, idx, off int64, data []byte) error {
 		var lh *pb.GetLeaseHolderResponse
 		lh, err = c.leaseHolder(path, idx)
 		if err != nil {
-			if errors.Is(err, ErrNotFound) || status.Code(err) == codes.InvalidArgument {
+			if errors.Is(err, ErrNotFound) || status.Code(err) == codes.InvalidArgument || status.Code(err) == codes.PermissionDenied {
 				return err
 			}
 			continue
@@ -172,7 +172,7 @@ func (c *Client) RecordAppend(path string, data []byte) (int64, error) {
 			}
 			c.dropLease(path, idx)
 		}
-		if errors.Is(err, ErrNotFound) || status.Code(err) == codes.InvalidArgument || status.Code(err) == codes.NotFound {
+		if errors.Is(err, ErrNotFound) || status.Code(err) == codes.InvalidArgument || status.Code(err) == codes.PermissionDenied || status.Code(err) == codes.NotFound {
 			return 0, err
 		}
 		attempt++

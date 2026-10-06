@@ -67,6 +67,9 @@ func (m *Master) GetLeaseHolder(ctx context.Context, req *pb.GetLeaseHolderReque
 	if req.Index < 0 {
 		return nil, status.Error(codes.InvalidArgument, "negative chunk index")
 	}
+	if InTrash(p) {
+		return nil, status.Errorf(codes.PermissionDenied, "%s is deleted: undelete it to write", p)
+	}
 	m.mu.RLock()
 	f, ok := m.st.Files[p]
 	n := 0

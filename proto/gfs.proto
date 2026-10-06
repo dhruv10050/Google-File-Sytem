@@ -37,6 +37,8 @@ service Master {
   rpc Stat(StatRequest) returns (StatResponse);
   // Copy-on-write snapshot of a file or directory tree (§3.4).
   rpc Snapshot(SnapshotRequest) returns (Empty);
+  // Restore a deleted file from its hidden name under /.deleted (§4.4).
+  rpc Undelete(UndeleteRequest) returns (UndeleteResponse);
 
   // Chunk metadata (§2.4, §3.1).
   rpc GetChunkLocations(GetChunkLocationsRequest) returns (GetChunkLocationsResponse);
@@ -71,7 +73,14 @@ message CreateFileRequest {
   int32 replication = 2; // 0 = cluster default
 }
 
+// Deleting a file renames it to a hidden name under /.deleted; it is
+// removed for good, and its chunks reclaimed, after the trash retention
+// period (§4.4.1). Deleting a hidden file removes it at once.
 message DeleteFileRequest { string path = 1; }
+
+message UndeleteRequest { string path = 1; } // hidden name, e.g. /.deleted/...
+
+message UndeleteResponse { string path = 1; } // where the file was restored
 
 message ListRequest { string path = 1; }
 
@@ -79,6 +88,8 @@ message ListEntry {
   string name = 1;
   bool is_dir = 2;
   int64 num_chunks = 3;
+  string deleted_from = 4;      // hidden (deleted) files: original path
+  int64 deleted_unix_nanos = 5; // hidden (deleted) files: deletion time
 }
 
 message ListResponse { repeated ListEntry entries = 1; }
@@ -95,6 +106,8 @@ message StatResponse {
   int64 num_chunks = 2;
   int32 replication = 3;
   int64 ctime_unix_nanos = 4;
+  string deleted_from = 5;
+  int64 deleted_unix_nanos = 6;
 }
 
 message GetChunkLocationsRequest {
@@ -179,6 +192,7 @@ message ClusterStatusResponse {
   int64 clones_completed = 7;
   uint64 applied_lsn = 8;
   bool is_shadow = 9;
+  int64 deleted_files = 10; // hidden files awaiting garbage collection
 }
 
 // ───────────────────────── Chunkserver ─────────────────────────
@@ -315,6 +329,8 @@ message LogRecord {
     SetVersionOp set_version = 14;
     SnapshotOp snapshot = 15;
     ReplaceChunkOp replace_chunk = 16;
+    TrashFileOp trash_file = 17;
+    RestoreFileOp restore_file = 18;
   }
 }
 
@@ -325,7 +341,15 @@ message CreateFileOp {
   int32 replication = 2;
 }
 
+// Removes a file (its chunks lose a reference) or an empty directory.
 message DeleteFileOp { string path = 1; }
+
+// Lazy deletion (§4.4.1): renames path to a hidden name derived from the
+// record's LSN and timestamp, /.deleted/<unix_nanos>-<lsn>-<base name>.
+message TrashFileOp { string path = 1; }
+
+// Undelete: moves a hidden file back to where it was deleted from.
+message RestoreFileOp { string hidden = 1; }
 
 message AddChunkOp {
   string path = 1;
@@ -361,6 +385,8 @@ message FileState {
   int32 replication = 2;
   int64 ctime_unix_nanos = 3;
   repeated uint64 chunks = 4;
+  string deleted_from = 5;
+  int64 deleted_unix_nanos = 6;
 }
 
 message ChunkState {

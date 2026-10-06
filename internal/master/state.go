@@ -3,6 +3,7 @@ package master
 import (
 	"errors"
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 
@@ -23,6 +24,22 @@ type FileMeta struct {
 	Replication int32
 	Ctime       int64
 	Chunks      []common.ChunkHandle
+
+	// Set while the file sits under TrashDir awaiting garbage collection.
+	DeletedFrom string
+	Deleted     int64 // unix nanos
+}
+
+// TrashDir holds deleted files under hidden names until garbage collection
+// removes them (§4.4.1). Clients cannot create anything inside it.
+const TrashDir = "/.deleted"
+
+func InTrash(p string) bool { return p == TrashDir || strings.HasPrefix(p, TrashDir+"/") }
+
+// TrashName is the hidden name a file deleted by rec gets. It includes the
+// deletion time, as in the paper, and the LSN, which makes it unique.
+func TrashName(p string, rec *pb.LogRecord) string {
+	return fmt.Sprintf("%s/%d-%d-%s", TrashDir, rec.UnixNanos, rec.Lsn, path.Base(p))
 }
 
 // ChunkMeta is the persistent per-chunk metadata. Replica locations are
@@ -78,6 +95,9 @@ func (s *State) Validate(rec *pb.LogRecord) error {
 	switch op := rec.Op.(type) {
 	case *pb.LogRecord_Mkdir:
 		p := op.Mkdir.Path
+		if InTrash(p) {
+			return fmt.Errorf("%s is reserved: %w", p, ErrInvalid)
+		}
 		if s.exists(p) {
 			return fmt.Errorf("%s: %w", p, ErrExists)
 		}
@@ -86,6 +106,9 @@ func (s *State) Validate(rec *pb.LogRecord) error {
 		}
 	case *pb.LogRecord_CreateFile:
 		p := op.CreateFile.Path
+		if InTrash(p) {
+			return fmt.Errorf("%s is reserved: %w", p, ErrInvalid)
+		}
 		if s.exists(p) {
 			return fmt.Errorf("%s: %w", p, ErrExists)
 		}
@@ -132,6 +155,9 @@ func (s *State) Validate(rec *pb.LogRecord) error {
 		if !s.exists(src) {
 			return fmt.Errorf("%s: %w", src, ErrNotFound)
 		}
+		if InTrash(dst) {
+			return fmt.Errorf("%s is reserved: %w", dst, ErrInvalid)
+		}
 		if s.exists(dst) {
 			return fmt.Errorf("%s: %w", dst, ErrExists)
 		}
@@ -152,6 +178,29 @@ func (s *State) Validate(rec *pb.LogRecord) error {
 		}
 		if _, dup := s.Chunks[common.ChunkHandle(r.NewHandle)]; dup {
 			return fmt.Errorf("chunk handle %d reused: %w", r.NewHandle, ErrInvalid)
+		}
+	case *pb.LogRecord_TrashFile:
+		p := op.TrashFile.Path
+		if _, ok := s.Files[p]; !ok {
+			return fmt.Errorf("%s: %w", p, ErrNotFound)
+		}
+		if InTrash(p) {
+			return fmt.Errorf("%s is already deleted: %w", p, ErrInvalid)
+		}
+	case *pb.LogRecord_RestoreFile:
+		h := op.RestoreFile.Hidden
+		f, ok := s.Files[h]
+		if !ok {
+			return fmt.Errorf("%s: %w", h, ErrNotFound)
+		}
+		if !InTrash(h) || f.DeletedFrom == "" {
+			return fmt.Errorf("%s is not a deleted file: %w", h, ErrInvalid)
+		}
+		if s.exists(f.DeletedFrom) {
+			return fmt.Errorf("%s: %w", f.DeletedFrom, ErrExists)
+		}
+		if !s.Dirs[common.Parent(f.DeletedFrom)] {
+			return fmt.Errorf("%s: %w", common.Parent(f.DeletedFrom), ErrNotDir)
 		}
 	default:
 		return fmt.Errorf("unknown log op %T: %w", rec.Op, ErrInvalid)
@@ -200,6 +249,19 @@ func (s *State) Apply(rec *pb.LogRecord) ([]common.ChunkHandle, error) {
 		s.Chunks[common.ChunkHandle(op.SetVersion.Handle)].Version = op.SetVersion.Version
 	case *pb.LogRecord_Snapshot:
 		s.applySnapshot(op.Snapshot.Source, op.Snapshot.Target, rec.UnixNanos)
+	case *pb.LogRecord_TrashFile:
+		p := op.TrashFile.Path
+		f := s.Files[p]
+		f.DeletedFrom, f.Deleted = p, rec.UnixNanos
+		s.Dirs[TrashDir] = true
+		s.Files[TrashName(p, rec)] = f
+		delete(s.Files, p)
+	case *pb.LogRecord_RestoreFile:
+		h := op.RestoreFile.Hidden
+		f := s.Files[h]
+		s.Files[f.DeletedFrom] = f
+		f.DeletedFrom, f.Deleted = "", 0
+		delete(s.Files, h)
 	case *pb.LogRecord_ReplaceChunk:
 		r := op.ReplaceChunk
 		old, h := common.ChunkHandle(r.OldHandle), common.ChunkHandle(r.NewHandle)
@@ -280,7 +342,7 @@ func (s *State) ToCheckpoint() *pb.Checkpoint {
 	sort.Strings(paths)
 	for _, p := range paths {
 		f := s.Files[p]
-		fs := &pb.FileState{Path: p, Replication: f.Replication, CtimeUnixNanos: f.Ctime}
+		fs := &pb.FileState{Path: p, Replication: f.Replication, CtimeUnixNanos: f.Ctime, DeletedFrom: f.DeletedFrom, DeletedUnixNanos: f.Deleted}
 		for _, h := range f.Chunks {
 			fs.Chunks = append(fs.Chunks, uint64(h))
 		}
@@ -305,7 +367,7 @@ func StateFromCheckpoint(cp *pb.Checkpoint) (*State, error) {
 		s.Dirs[d] = true
 	}
 	for _, f := range cp.Files {
-		fm := &FileMeta{Replication: f.Replication, Ctime: f.CtimeUnixNanos}
+		fm := &FileMeta{Replication: f.Replication, Ctime: f.CtimeUnixNanos, DeletedFrom: f.DeletedFrom, Deleted: f.DeletedUnixNanos}
 		for _, h := range f.Chunks {
 			fm.Chunks = append(fm.Chunks, common.ChunkHandle(h))
 		}
@@ -340,18 +402,20 @@ func (s *State) CheckInvariants() error {
 	return nil
 }
 
-// Children lists direct children of dir.
+// Children lists direct children of dir. The trash directory is hidden
+// from the root listing but can be listed itself.
 func (s *State) Children(dir string) []*pb.ListEntry {
 	prefix := strings.TrimSuffix(dir, "/") + "/"
 	var out []*pb.ListEntry
 	for d := range s.Dirs {
-		if d != "/" && common.Parent(d) == dir {
+		if d != "/" && d != TrashDir && common.Parent(d) == dir {
 			out = append(out, &pb.ListEntry{Name: strings.TrimPrefix(d, prefix), IsDir: true})
 		}
 	}
 	for p, f := range s.Files {
 		if common.Parent(p) == dir {
-			out = append(out, &pb.ListEntry{Name: strings.TrimPrefix(p, prefix), NumChunks: int64(len(f.Chunks))})
+			out = append(out, &pb.ListEntry{Name: strings.TrimPrefix(p, prefix), NumChunks: int64(len(f.Chunks)),
+				DeletedFrom: f.DeletedFrom, DeletedUnixNanos: f.Deleted})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })

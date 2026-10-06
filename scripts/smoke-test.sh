@@ -31,6 +31,9 @@ gfs get /smoke/f $T/out && cmp $T/in $T/out && echo "ok: put/get 50 MB"
 gfs snapshot /smoke /snap
 echo "changed" | gfs write /snap/f 0
 gfs get /smoke/f $T/out && cmp $T/in $T/out && [[ $(gfs read /snap/f 0 7) == changed ]] && echo "ok: snapshot is copy-on-write"
+gfs rm /snap/f
+hidden=/.deleted/$(gfs ls /.deleted | awk '{print $2}')
+[[ $(gfs undelete "$hidden") == /snap/f && $(gfs read /snap/f 0 7) == changed ]] && echo "ok: rm is lazy; undelete restores"
 
 $C kill-cs 0
 wait_for 30 "re-replication after kill -9" sh -c "bin/gfs status | grep -c '127.0.0.1:70' | grep -qx 4 && bin/gfs status | grep -q 'under-replicated: 0'"

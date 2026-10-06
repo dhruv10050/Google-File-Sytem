@@ -25,6 +25,8 @@ func main() {
 		deadAfter = flag.Duration("dead-after", 0, "declare a chunkserver dead after this long without heartbeats (default 5x heartbeat)")
 		clones    = flag.Int("max-clones-per-server", 4, "concurrent re-replications per chunkserver")
 		clonesAll = flag.Int("max-clones", 0, "concurrent re-replications cluster-wide (0 = unlimited)")
+		trash     = flag.Duration("trash-retention", 72*time.Hour, "keep deleted files under /.deleted this long before garbage collection (0 = delete at once)")
+		gcEvery   = flag.Duration("gc-interval", time.Minute, "how often to garbage-collect deleted files")
 		ckptEvery = flag.Int("checkpoint-every", 50000, "checkpoint after this many log records")
 		shadow    = flag.Bool("shadow", false, "run as a read-only shadow master")
 		primary   = flag.String("primary", "", "primary master address (shadow mode)")
@@ -36,11 +38,15 @@ func main() {
 		os.Exit(2)
 	}
 	log := common.NewLogger(*level, "master")
+	if *trash == 0 {
+		*trash = -1 // Config: 0 means the default
+	}
 	m, err := master.New(master.Config{
 		ListenAddr: *listen, Dir: *dir, Logger: log,
 		ChunkSize: *chunkMB << 20, DefaultReplication: int32(*repl),
 		LeaseDuration: *lease, HeartbeatInterval: *hb, DeadAfter: *deadAfter,
 		MaxClonesPerServer: *clones, MaxClonesCluster: *clonesAll,
+		TrashRetention: *trash, GCInterval: *gcEvery,
 		CheckpointEveryRecords: *ckptEvery, Shadow: *shadow, PrimaryAddr: *primary,
 	})
 	if err != nil {
