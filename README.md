@@ -2,7 +2,7 @@
 
 A from-scratch implementation of the [Google File System](https://research.google/pubs/the-google-file-system/) (Ghemawat, Gobioff, Leung — SOSP 2003) in Go, using gRPC and Protocol Buffers. The paper is the spec: section numbers like (§4.5) in the code and below point to the part of the paper each mechanism implements.
 
-> **Status:** the core system is implemented and tested: the master with its operation log, checkpoints and shadow; chunkservers; 3-way replication; leases; heartbeats; re-replication; checksums; stale-replica detection. Record append, snapshots, garbage collection, rebalancing and namespace locking are next, followed by benchmarks on a SLURM cluster. See [Roadmap](#roadmap).
+> **Status:** the system described in the paper is implemented and tested: the master with its operation log, checkpoints and shadow; chunkservers; 3-way replication; leases; heartbeats; re-replication; checksums; stale-replica detection; record append; copy-on-write snapshots; lazy garbage collection; rebalancing; namespace locking. Benchmarks on a SLURM cluster are being finalised. See [Roadmap](#roadmap).
 
 ## Architecture
 
@@ -51,18 +51,29 @@ A from-scratch implementation of the [Google File System](https://research.googl
 | Master crash | Restart loads the latest checkpoint, replays the log after it (truncating a torn final record) and checks invariants. Chunkservers re-register, and replicas found to be ahead of the log are adopted (§4.5). |
 | Master down | The client falls back to the shadow master for metadata reads. Writes wait for the primary (§5.1.3). |
 
+### Record append, snapshots, deletion
+
+| Feature | How it works |
+|---|---|
+| Record append (§3.3) | The client pushes the record and the primary picks the offset: the current end of its replica. Every secondary writes the record at that same offset. If the record doesn't fit, all replicas pad the chunk and the client retries on the next chunk. Records are limited to a quarter chunk. A failed attempt is retried, so each record is written atomically at least once and may be duplicated. |
+| Snapshots (§3.4) | The master revokes the leases on the source's chunks, then logs a record that copies the metadata and raises each chunk's reference count. The first write to a shared chunk makes every replica copy it *locally* under a new handle before a lease is granted, so snapshot data never crosses the network. |
+| Deletion and GC (§4.4) | `rm` renames the file to a hidden `/.deleted/<time>-<lsn>-<name>`. It stays readable there and can be restored with `undelete`. A periodic scan removes hidden files older than `--trash-retention` (default 3 days). Their chunks become orphans, which chunkservers delete once a heartbeat reports them. |
+| Rebalancing (§4.3) | When nothing is under-replicated, the master trims extra replicas (e.g. from a chunkserver that came back after its chunks were re-replicated) and moves replicas from the fullest to the emptiest chunkserver, a few at a time, so new servers fill up gradually. |
+| Namespace locking (§4.1) | Per-path read/write locks, created on demand. An operation read-locks the ancestors of every path it touches and write-locks the paths themselves. A snapshot therefore blocks creations under its source, while creates in one directory run concurrently. Locks are taken in one global order, so they cannot deadlock. |
+
 ### Where this differs from the paper
 
 - **Lease fencing by version.** The paper waits for an old lease to expire before granting a new one. Here, granting a lease always bumps the chunk version on the replicas first. A replica that sees a new version drops any lease it holds, and secondaries reject mutations carrying an old version. So a new primary can be chosen immediately, without waiting up to 60 s.
 - **A lease is void once any replica it covered is lost.** If a secondary dies mid-lease, retried writes can succeed on the remaining replicas without changing the version. The dead replica would then come back looking current. Voiding the lease forces the next write to bump the version, which marks the returning replica stale. There is a regression test for this: `TestStaleReplicaAfterRestart`.
 - **One in-flight mutation per chunk at the primary.** This keeps the ordering of mutations at the secondaries simple. Data pushes from many clients still overlap.
+- **Rebalancing counts replicas, not bytes.** The paper balances disk space. With mostly full 64 MB chunks, the two agree, and replica counts change the moment the master moves one rather than a heartbeat later.
 
 ## Layout
 
 ```
 proto/gfs.proto          gRPC services + persistent formats (log records, checkpoints, chunk metadata)
 api/gfspb/               generated code (committed)
-internal/master/         state machine, op log, checkpoints, leases, heartbeats, re-replication, shadow
+internal/master/         state machine, op log, checkpoints, leases, heartbeats, re-replication, snapshots, GC, rebalancing, namespace locks, shadow
 internal/chunkserver/    chunk store with checksums, data buffer, mutation pipeline, cloning
 internal/common/         shared constants, path helpers, gRPC dialing
 pkg/client/              client library
@@ -101,7 +112,12 @@ bin/gfs stat /data/bigfile
 bin/gfs get /data/bigfile ./copy          # copy it back out
 echo hello | bin/gfs write /data/bigfile 0
 bin/gfs read /data/bigfile 0 5
-bin/gfs status                            # servers, replica histogram, clones
+echo record | bin/gfs append /data/log    # prints the offset the primary chose
+bin/gfs snapshot /data /backup            # instant copy-on-write copy
+bin/gfs rm /data/bigfile                  # hidden under /.deleted until GC
+bin/gfs ls /.deleted
+bin/gfs undelete /.deleted/<name>         # restore it
+bin/gfs status                            # servers, replica histogram, clones, moves
 
 scripts/local-cluster.sh kill-cs 0        # kill -9 a chunkserver; watch `gfs status`
 scripts/local-cluster.sh stop
@@ -110,7 +126,7 @@ scripts/local-cluster.sh stop
 Or run the binaries yourself:
 
 ```sh
-gfs-master      --listen :7000 --dir /scratch/gfs/master
+gfs-master      --listen :7000 --dir /scratch/gfs/master    # see --help: --trash-retention, --rebalance-interval, ...
 gfs-master      --listen :7100 --dir /scratch/gfs/shadow --shadow --primary host1:7000
 gfs-chunkserver --listen :7001 --dir /scratch/gfs/cs --masters host1:7000,host2:7100
 ```
@@ -130,11 +146,16 @@ scripts/smoke-test.sh        # the same scenarios with real OS processes and kil
 - **Integration tests** (`internal/testcluster` runs a whole cluster in one process on loopback ports):
   - Replicated reads and writes across chunk boundaries, sparse files, and concurrent writers.
   - Failure scenarios: chunkserver death → re-replication; on-disk corruption → detection and replacement; secondary killed mid-lease → stale on return; master crash → recovery from checkpoint + log; primary down → reads served by the shadow.
+  - Record append: 8 concurrent appenders across padded chunks, the size limit, and appends that continue through a chunkserver death. Every acknowledged record is checked on every replica.
+  - Snapshots: copy-on-write isolation, directory snapshots surviving deletion and a master restart, snapshots taken during concurrent writes, and races between snapshots and creates.
+  - Garbage collection: lazy delete, undelete and restart; expiry; chunks still shared with a snapshot are kept.
+  - Rebalancing: three empty chunkservers added to a full cluster fill up to an even spread; excess replicas from a returning server are trimmed.
+  - Namespace locks: which operations conflict, and 16 goroutines locking overlapping path sets without deadlock.
 
 ## Roadmap
 
 - [x] M1–M4 core: master metadata + op log + checkpoints + shadow, chunkservers, replication, leases, heartbeats, re-replication, checksums, stale-replica detection
-- [ ] Record append (§3.3) with padding and at-least-once semantics
-- [ ] Copy-on-write snapshots (§3.4) with lease revocation and crash-safe refcounts
-- [ ] Lazy garbage collection with hidden deleted files (§4.4), rebalancing (§4.3), namespace read/write locks (§4.1)
+- [x] Record append (§3.3) with padding and at-least-once semantics
+- [x] Copy-on-write snapshots (§3.4) with lease revocation and crash-safe refcounts
+- [x] Lazy garbage collection with hidden deleted files (§4.4), rebalancing (§4.3), namespace read/write locks (§4.1)
 - [ ] Benchmarks on a SLURM cluster: read/write/append throughput vs. number of clients, recovery time, snapshot vs. copy, metadata ops/s
