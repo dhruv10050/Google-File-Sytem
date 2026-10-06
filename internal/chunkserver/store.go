@@ -151,6 +151,12 @@ func (s *Store) SetChunkSize(n int64) {
 	s.mu.Unlock()
 }
 
+func (s *Store) ChunkSize() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.chunkSize
+}
+
 func (s *Store) Get(h common.ChunkHandle) (*chunk, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -184,6 +190,12 @@ func (c *chunk) Version() uint64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.version
+}
+
+func (c *chunk) Length() int64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.length
 }
 
 func (c *chunk) MarkCorrupted() {
@@ -359,6 +371,17 @@ func (s *Store) Write(c *chunk, off int64, data []byte) error {
 		}
 	}
 	return s.persistMeta(c, s.fsyncData)
+}
+
+// Pad extends the chunk with zeros to n bytes; a chunk already that long is
+// left alone. Record append pads a chunk that cannot fit the next record
+// (§3.3). Records are at most a quarter chunk, so the padding is too.
+func (s *Store) Pad(c *chunk, n int64) error {
+	l := c.Length()
+	if l >= n {
+		return nil
+	}
+	return s.Write(c, l, make([]byte, n-l))
 }
 
 // Read returns up to n bytes at off, verifying the checksum of every

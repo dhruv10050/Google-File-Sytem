@@ -599,6 +599,7 @@ const (
 	ChunkServer_PushData_FullMethodName      = "/gfs.ChunkServer/PushData"
 	ChunkServer_Write_FullMethodName         = "/gfs.ChunkServer/Write"
 	ChunkServer_ApplyMutation_FullMethodName = "/gfs.ChunkServer/ApplyMutation"
+	ChunkServer_RecordAppend_FullMethodName  = "/gfs.ChunkServer/RecordAppend"
 	ChunkServer_Read_FullMethodName          = "/gfs.ChunkServer/Read"
 	ChunkServer_ChunkInfo_FullMethodName     = "/gfs.ChunkServer/ChunkInfo"
 	ChunkServer_CreateChunk_FullMethodName   = "/gfs.ChunkServer/CreateChunk"
@@ -621,6 +622,8 @@ type ChunkServerClient interface {
 	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Primary -> secondaries (§3.1 step 5).
 	ApplyMutation(ctx context.Context, in *ApplyMutationRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Record append (§3.3): the primary chooses the offset.
+	RecordAppend(ctx context.Context, in *RecordAppendRequest, opts ...grpc.CallOption) (*RecordAppendResponse, error)
 	// Reads verify the checksums of every overlapped block (§5.2).
 	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DataFrame], error)
 	ChunkInfo(ctx context.Context, in *ChunkInfoRequest, opts ...grpc.CallOption) (*ChunkReport, error)
@@ -669,6 +672,16 @@ func (c *chunkServerClient) ApplyMutation(ctx context.Context, in *ApplyMutation
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, ChunkServer_ApplyMutation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chunkServerClient) RecordAppend(ctx context.Context, in *RecordAppendRequest, opts ...grpc.CallOption) (*RecordAppendResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecordAppendResponse)
+	err := c.cc.Invoke(ctx, ChunkServer_RecordAppend_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -785,6 +798,8 @@ type ChunkServerServer interface {
 	Write(context.Context, *WriteRequest) (*Empty, error)
 	// Primary -> secondaries (§3.1 step 5).
 	ApplyMutation(context.Context, *ApplyMutationRequest) (*Empty, error)
+	// Record append (§3.3): the primary chooses the offset.
+	RecordAppend(context.Context, *RecordAppendRequest) (*RecordAppendResponse, error)
 	// Reads verify the checksums of every overlapped block (§5.2).
 	Read(*ReadRequest, grpc.ServerStreamingServer[DataFrame]) error
 	ChunkInfo(context.Context, *ChunkInfoRequest) (*ChunkReport, error)
@@ -814,6 +829,9 @@ func (UnimplementedChunkServerServer) Write(context.Context, *WriteRequest) (*Em
 }
 func (UnimplementedChunkServerServer) ApplyMutation(context.Context, *ApplyMutationRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method ApplyMutation not implemented")
+}
+func (UnimplementedChunkServerServer) RecordAppend(context.Context, *RecordAppendRequest) (*RecordAppendResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordAppend not implemented")
 }
 func (UnimplementedChunkServerServer) Read(*ReadRequest, grpc.ServerStreamingServer[DataFrame]) error {
 	return status.Error(codes.Unimplemented, "method Read not implemented")
@@ -902,6 +920,24 @@ func _ChunkServer_ApplyMutation_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChunkServerServer).ApplyMutation(ctx, req.(*ApplyMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChunkServer_RecordAppend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordAppendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChunkServerServer).RecordAppend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChunkServer_RecordAppend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChunkServerServer).RecordAppend(ctx, req.(*RecordAppendRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1075,6 +1111,10 @@ var ChunkServer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ApplyMutation",
 			Handler:    _ChunkServer_ApplyMutation_Handler,
+		},
+		{
+			MethodName: "RecordAppend",
+			Handler:    _ChunkServer_RecordAppend_Handler,
 		},
 		{
 			MethodName: "ChunkInfo",

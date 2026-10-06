@@ -185,6 +185,8 @@ service ChunkServer {
   rpc Write(WriteRequest) returns (Empty);
   // Primary -> secondaries (§3.1 step 5).
   rpc ApplyMutation(ApplyMutationRequest) returns (Empty);
+  // Record append (§3.3): the primary chooses the offset.
+  rpc RecordAppend(RecordAppendRequest) returns (RecordAppendResponse);
 
   // Reads verify the checksums of every overlapped block (§5.2).
   rpc Read(ReadRequest) returns (stream DataFrame);
@@ -222,6 +224,19 @@ message ApplyMutationRequest {
   uint64 serial = 3;
   int64 offset = 4;
   string data_id = 5;
+  int64 pad_to = 6; // record append: pad the chunk with zeros to this length instead of writing data
+}
+
+message RecordAppendRequest {
+  uint64 handle = 1;
+  uint64 version = 2;
+  string data_id = 3;
+  repeated string secondaries = 4;
+}
+
+message RecordAppendResponse {
+  int64 offset = 1;     // offset within the chunk where the record was written
+  bool chunk_full = 2;  // record did not fit: the chunk was padded; retry on the next chunk
 }
 
 message ReadRequest {

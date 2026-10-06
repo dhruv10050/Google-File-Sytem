@@ -281,35 +281,90 @@ func (s *Server) Write(ctx context.Context, req *pb.WriteRequest) (*pb.Empty, er
 	}
 	c.mutMu.Lock()
 	defer c.mutMu.Unlock()
-
-	if v := c.Version(); v != req.Version {
-		return nil, status.Errorf(codes.FailedPrecondition, "version mismatch: have %d, request %d", v, req.Version)
-	}
-	if !s.leaseValid(c) {
-		return nil, status.Error(codes.FailedPrecondition, "not primary (no valid lease)")
-	}
-	data, ok := s.buf.Get(req.DataId)
-	if !ok {
-		return nil, status.Error(codes.FailedPrecondition, "pushed data not found (expired?)")
+	data, err := s.primaryCheck(c, req.Version, req.DataId)
+	if err != nil {
+		return nil, err
 	}
 	c.serial++
-	serial := c.serial
 	if err := s.applyLocal(c, req.Offset, data); err != nil {
 		return nil, err
 	}
 	s.buf.Delete(req.DataId)
+	m := &pb.ApplyMutationRequest{Handle: req.Handle, Version: req.Version, Serial: c.serial, Offset: req.Offset, DataId: req.DataId}
+	return &pb.Empty{}, s.forward(ctx, c, req.Secondaries, m)
+}
 
-	errs := make([]error, len(req.Secondaries))
+// RecordAppend appends the pushed data at an offset the primary chooses: the
+// current end of its replica (§3.3). Every secondary writes it at that same
+// offset. If the record does not fit, all replicas pad the chunk to its full
+// size and the client retries on the next chunk.
+//
+// A failed append can leave the record on some replicas only. The client
+// retries, so a record may be present more than once, and replicas may hold
+// different bytes in the failed region: GFS guarantees the record is written
+// atomically at least once, at an offset that is the same on every replica.
+func (s *Server) RecordAppend(ctx context.Context, req *pb.RecordAppendRequest) (*pb.RecordAppendResponse, error) {
+	c, err := s.getChunk(req.Handle)
+	if err != nil {
+		return nil, err
+	}
+	c.mutMu.Lock()
+	defer c.mutMu.Unlock()
+	data, err := s.primaryCheck(c, req.Version, req.DataId)
+	if err != nil {
+		return nil, err
+	}
+	size := s.store.ChunkSize()
+	if int64(len(data)) > size/4 {
+		return nil, status.Errorf(codes.InvalidArgument, "record of %d bytes exceeds the limit of %d (chunk size / 4)", len(data), size/4)
+	}
+	c.serial++
+	m := &pb.ApplyMutationRequest{Handle: req.Handle, Version: req.Version, Serial: c.serial}
+	resp := &pb.RecordAppendResponse{}
+	if off := c.Length(); off+int64(len(data)) > size {
+		m.PadTo, resp.ChunkFull = size, true
+		err = s.padLocal(c, size)
+	} else {
+		m.Offset, m.DataId, resp.Offset = off, req.DataId, off
+		err = s.applyLocal(c, off, data)
+	}
+	if err != nil {
+		return nil, err
+	}
+	s.buf.Delete(req.DataId)
+	if err := s.forward(ctx, c, req.Secondaries, m); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// primaryCheck verifies, under mutMu, that this replica is the current
+// primary for version and returns the pushed data.
+func (s *Server) primaryCheck(c *chunk, version uint64, dataID string) ([]byte, error) {
+	if v := c.Version(); v != version {
+		return nil, status.Errorf(codes.FailedPrecondition, "version mismatch: have %d, request %d", v, version)
+	}
+	if !s.leaseValid(c) {
+		return nil, status.Error(codes.FailedPrecondition, "not primary (no valid lease)")
+	}
+	data, ok := s.buf.Get(dataID)
+	if !ok {
+		return nil, status.Error(codes.FailedPrecondition, "pushed data not found (expired?)")
+	}
+	return data, nil
+}
+
+// forward sends an applied mutation to every secondary in parallel.
+func (s *Server) forward(ctx context.Context, c *chunk, secondaries []string, m *pb.ApplyMutationRequest) error {
+	errs := make([]error, len(secondaries))
 	var wg sync.WaitGroup
-	for i, sec := range req.Secondaries {
+	for i, sec := range secondaries {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			conn, err := s.pool.Get(sec)
 			if err == nil {
-				_, err = pb.NewChunkServerClient(conn).ApplyMutation(ctx, &pb.ApplyMutationRequest{
-					Handle: req.Handle, Version: req.Version, Serial: serial, Offset: req.Offset, DataId: req.DataId,
-				})
+				_, err = pb.NewChunkServerClient(conn).ApplyMutation(ctx, m)
 			}
 			if err != nil {
 				errs[i] = fmt.Errorf("secondary %s: %v", sec, err)
@@ -322,12 +377,13 @@ func (s *Server) Write(ctx context.Context, req *pb.WriteRequest) (*pb.Empty, er
 	c.leaseMu.Unlock()
 	if err := errors.Join(errs...); err != nil {
 		// The region is now inconsistent across replicas; the client retries (§3.1 step 7).
-		return nil, status.Errorf(codes.Aborted, "mutation failed at secondaries: %v", err)
+		return status.Errorf(codes.Aborted, "mutation failed at secondaries: %v", err)
 	}
-	return &pb.Empty{}, nil
+	return nil
 }
 
-// ApplyMutation is the primary's forwarded write to a secondary.
+// ApplyMutation is the primary's forwarded write (or record-append padding)
+// to a secondary.
 func (s *Server) ApplyMutation(ctx context.Context, req *pb.ApplyMutationRequest) (*pb.Empty, error) {
 	c, err := s.getChunk(req.Handle)
 	if err != nil {
@@ -341,6 +397,13 @@ func (s *Server) ApplyMutation(ctx context.Context, req *pb.ApplyMutationRequest
 	if req.Serial <= c.serial {
 		return nil, status.Errorf(codes.FailedPrecondition, "out-of-order serial %d (last %d)", req.Serial, c.serial)
 	}
+	if req.PadTo > 0 {
+		if err := s.padLocal(c, req.PadTo); err != nil {
+			return nil, err
+		}
+		c.serial = req.Serial
+		return &pb.Empty{}, nil
+	}
 	data, ok := s.buf.Get(req.DataId)
 	if !ok {
 		return nil, status.Error(codes.FailedPrecondition, "pushed data not found (expired?)")
@@ -353,8 +416,16 @@ func (s *Server) ApplyMutation(ctx context.Context, req *pb.ApplyMutationRequest
 	return &pb.Empty{}, nil
 }
 
+func (s *Server) padLocal(c *chunk, n int64) error {
+	return s.storeErr(c, s.store.Pad(c, n))
+}
+
 func (s *Server) applyLocal(c *chunk, off int64, data []byte) error {
-	err := s.store.Write(c, off, data)
+	return s.storeErr(c, s.store.Write(c, off, data))
+}
+
+// storeErr maps a store error to a gRPC status, noting corruption.
+func (s *Server) storeErr(c *chunk, err error) error {
 	switch {
 	case err == nil:
 		return nil

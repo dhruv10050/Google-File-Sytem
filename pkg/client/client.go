@@ -25,7 +25,10 @@ import (
 	"github.com/dhruv10050/Google-File-Sytem/internal/common"
 )
 
-var ErrNotFound = errors.New("gfs: file not found")
+var (
+	ErrNotFound       = errors.New("gfs: file not found")
+	ErrRecordTooLarge = errors.New("gfs: record larger than a quarter chunk")
+)
 
 type Options struct {
 	// Masters lists the primary master first, then shadow masters. Reads
@@ -50,6 +53,7 @@ type Client struct {
 	mu     sync.Mutex
 	files  map[string]*fileEntry
 	leases map[leaseKey]*pb.GetLeaseHolderResponse
+	tail   map[string]int64 // chunk index of the last successful record append per file
 }
 
 type fileEntry struct {
@@ -78,7 +82,7 @@ func New(opt Options) (*Client, error) {
 	}
 	c := &Client{
 		opt: opt, pool: common.NewConnPool(), local: localIPs(),
-		files: map[string]*fileEntry{}, leases: map[leaseKey]*pb.GetLeaseHolderResponse{},
+		files: map[string]*fileEntry{}, leases: map[leaseKey]*pb.GetLeaseHolderResponse{}, tail: map[string]int64{},
 	}
 	for _, a := range opt.Masters {
 		conn, err := c.pool.Get(a)

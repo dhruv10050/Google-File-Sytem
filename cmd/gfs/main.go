@@ -29,6 +29,7 @@ commands:
   put [-r N] <local> <file>        copy a local file (or - for stdin) into GFS
   get <file> [local]               copy a GFS file to a local file (default stdout)
   write <file> <offset> [local]    write a local file (or stdin) at offset
+  append <file> [local]            append a local file (or stdin) as one record; prints its offset
   read <file> <offset> <length>    read a byte range to stdout
   rm <path>                        delete a file or an empty directory
   status                           show cluster status
@@ -178,6 +179,31 @@ func run(c *client.Client, cmd string, args []string) error {
 		defer closeIn()
 		_, err = c.WriteFrom(fs.Arg(0), off, in, 0)
 		return err
+
+	case "append":
+		fs.Parse(args)
+		if err := need(fs, 1); err != nil {
+			return err
+		}
+		src := "-"
+		if fs.NArg() > 1 {
+			src = fs.Arg(1)
+		}
+		in, closeIn, err := openIn(src)
+		if err != nil {
+			return err
+		}
+		defer closeIn()
+		rec, err := io.ReadAll(io.LimitReader(in, c.ChunkSize()/4+1))
+		if err != nil {
+			return err
+		}
+		off, err := c.RecordAppend(fs.Arg(0), rec)
+		if err != nil {
+			return err
+		}
+		fmt.Println(off)
+		return nil
 
 	case "read":
 		fs.Parse(args)

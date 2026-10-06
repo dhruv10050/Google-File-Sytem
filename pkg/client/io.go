@@ -123,6 +123,81 @@ func (c *Client) mutate(lh *pb.GetLeaseHolderResponse, off int64, data []byte) e
 	return err
 }
 
+// ───────────────────────── Record append ─────────────────────────
+
+// RecordAppend appends data to path as a single record at an offset chosen
+// by GFS (§3.3) and returns that offset. Many clients may append to the
+// same file concurrently without any locking of their own.
+//
+// The record is written atomically, at least once: if an attempt fails part
+// way, it is retried and the file may then contain the record more than
+// once, or a fragment of it on some replicas. Readers must therefore be able
+// to recognise records, e.g. by a checksum and a unique id per record. A
+// record may be at most a quarter of the chunk size.
+func (c *Client) RecordAppend(path string, data []byte) (int64, error) {
+	if int64(len(data)) > c.chunkSize/4 {
+		return 0, ErrRecordTooLarge
+	}
+	c.mu.Lock()
+	idx, ok := c.tail[path]
+	c.mu.Unlock()
+	if !ok {
+		fe, err := c.fileInfo(path, 0, true)
+		if err != nil {
+			return 0, err
+		}
+		idx = max(fe.numChunks-1, 0)
+	}
+	var err error
+	backoff := 50 * time.Millisecond
+	for attempt := 0; attempt < c.opt.Retries; {
+		var lh *pb.GetLeaseHolderResponse
+		if lh, err = c.leaseHolder(path, idx); err == nil {
+			var resp *pb.RecordAppendResponse
+			if resp, err = c.appendOnce(lh, data); err == nil {
+				if !resp.ChunkFull {
+					c.mu.Lock()
+					c.tail[path] = idx
+					c.mu.Unlock()
+					return idx*c.chunkSize + resp.Offset, nil
+				}
+				// The chunk is full and has been padded. Move on to the next
+				// chunk, or further if other appenders already have.
+				next := idx + 1
+				if fe, ferr := c.fileInfo(path, next, true); ferr == nil {
+					next = max(next, fe.numChunks-1)
+				}
+				idx = next
+				continue
+			}
+			c.dropLease(path, idx)
+		}
+		if errors.Is(err, ErrNotFound) || status.Code(err) == codes.InvalidArgument || status.Code(err) == codes.NotFound {
+			return 0, err
+		}
+		attempt++
+		time.Sleep(backoff)
+		backoff = min(2*backoff, 2*time.Second)
+	}
+	return 0, fmt.Errorf("record append to %s: %w", path, err)
+}
+
+func (c *Client) appendOnce(lh *pb.GetLeaseHolderResponse, data []byte) (*pb.RecordAppendResponse, error) {
+	id := newDataID()
+	if err := c.push(c.chainOrder(append([]string{lh.Primary}, lh.Secondaries...)), id, data); err != nil {
+		return nil, err
+	}
+	cli, err := c.cs(lh.Primary)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := c.ctx()
+	defer cancel()
+	return cli.RecordAppend(ctx, &pb.RecordAppendRequest{
+		Handle: lh.Chunk.Handle, Version: lh.Chunk.Version, DataId: id, Secondaries: lh.Secondaries,
+	})
+}
+
 // push streams data to chain[0], which forwards it to the rest of the chain
 // while still receiving, so the transfer is pipelined.
 func (c *Client) push(chain []string, id string, data []byte) error {
