@@ -326,8 +326,12 @@ func (s *Store) Write(c *chunk, off int64, data []byte) error {
 	B := common.BlockSize
 	oldLen := c.length
 	newLen := max(oldLen, end)
+	// Blocks from the first one this write touches (or that a gap before it
+	// extends) to the last one it touches. Blocks after it are unchanged and
+	// keep their checksums: recomputing them would re-read the rest of the
+	// chunk and would hide any corruption in it.
 	startB := min(off, oldLen) / B
-	lastB := (newLen - 1) / B
+	lastB := (end - 1) / B
 
 	// Verify blocks holding existing data that this write will not fully
 	// replace but whose checksum will be recomputed.

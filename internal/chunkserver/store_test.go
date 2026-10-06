@@ -194,3 +194,28 @@ func TestDataBuffer(t *testing.T) {
 		t.Fatal("LRU eviction by size failed")
 	}
 }
+
+// An overwrite near the start of a chunk must recompute only the checksums
+// of the blocks it touches. Recomputing later blocks would re-read the rest
+// of the chunk on every write, and would also give corruption in those
+// blocks a fresh, matching checksum, hiding it from readers (§5.2).
+func TestStoreOverwriteKeepsLaterChecksums(t *testing.T) {
+	s, c := newChunk(t, t.TempDir(), 4)
+	data := randBytes(testChunk, 9)
+	if err := s.Write(c, 0, data); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(s.chunkPath(4), os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteAt([]byte{data[testChunk-10] ^ 0xFF}, testChunk-10) // inside the last block
+	f.Close()
+
+	if err := s.Write(c, 100, []byte("overwrite in block 0")); err != nil {
+		t.Fatalf("overwrite of an intact block: %v", err)
+	}
+	if _, err := s.Read(c, testChunk-100, 100); !errors.Is(err, ErrCorrupted) {
+		t.Fatalf("corruption in the last block went undetected after an earlier overwrite: err = %v", err)
+	}
+}
