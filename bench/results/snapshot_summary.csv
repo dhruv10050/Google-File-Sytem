@@ -1,0 +1,12 @@
+op,what,runs,bytes,median_ms,min_ms,max_ms,MBps
+snapshot,file (leases none),2,2147483648,0.4,0.4,0.4,
+snapshot,file (leases revoked),1,2147483648,16.5,16.5,16.5,
+snapshot,dir (leases none),2,17179869184,0.5,0.5,0.5,
+snapshot,dir (leases revoked),1,17179869184,171.6,171.6,171.6,
+snapshot,many (leases none),2,4096000,1.7,1.4,2.1,
+snapshot,many (leases revoked),1,4096000,323.4,323.4,323.4,
+copy,file,3,2147483648,32526.4,32123.5,33225.9,66.0
+copy,dir,3,17179869184,167235.6,167183.9,167276.0,102.7
+cow,shared-first,96,4096,357.3,233.1,690.8,
+cow,rewrite,192,4096,2.5,1.5,9.5,
+cow,unshared-first,96,4096,4.8,3.3,16.9,

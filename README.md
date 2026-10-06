@@ -171,6 +171,21 @@ Measured on 6 nodes of a SLURM cluster: 1 master and 5 chunkservers on 1 Gb/s Et
 
 Reads are served from the page cache (the nodes have far more RAM than the dataset), so they measure the network and GFS rather than the disks.
 
+**Snapshots vs. copying:**
+- A snapshot of a 17.2 GB directory (8 files, 256 chunks) took **0.5 ms**, or 172 ms when it first had to revoke leases from writes that had just finished. Copying the same directory through a client took **167 s**.
+- The first write to a chunk shared with a snapshot took a median of 357 ms, while each of its 3 replicas copied the chunk locally (copy-on-write). The first write to an unshared chunk took 4.8 ms.
+- All snapshots kept their original contents: 0 problems in a 17.2 GB byte-for-byte check.
+
+**Master metadata operations:** each create and delete is fsynced to the op log before it is acknowledged.
+
+| Operation | 1 client | 80 clients |
+|---|---:|---:|
+| Create (logged) | 2,281 ops/s | **68,802 ops/s** |
+| Stat | 4,443 ops/s | **135,403 ops/s** |
+| Delete (logged) | 2,286 ops/s | **66,324 ops/s** |
+
+Clients all working in one shared directory were as fast as clients in private directories (within −4 % to +7 %), so the per-path namespace locks are not a bottleneck.
+
 ## Roadmap
 
 - [x] M1–M4 core: master metadata + op log + checkpoints + shadow, chunkservers, replication, leases, heartbeats, re-replication, checksums, stale-replica detection
@@ -178,4 +193,4 @@ Reads are served from the page cache (the nodes have far more RAM than the datas
 - [x] Copy-on-write snapshots (§3.4) with lease revocation and crash-safe refcounts
 - [x] Lazy garbage collection with hidden deleted files (§4.4), rebalancing (§4.3), namespace read/write locks (§4.1)
 - [x] Benchmarks on a SLURM cluster: read/write/append throughput vs. number of clients, recovery time
-- [ ] Benchmarks: snapshot vs. full copy, metadata operations per second
+- [x] Benchmarks: snapshot vs. full copy, metadata operations per second

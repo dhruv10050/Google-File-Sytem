@@ -34,7 +34,7 @@ Each client is a `gfs-bench` process, launched as its own `srun --overlap` step 
 - **`avoid`** (*network-only*): `client.Options.AvoidLocal`. A client never reads from a replica on its own node, and never pushes to its own node first. Every byte crosses the network at least once per replica, so the 1 GbE limits below apply exactly. **This is the mode the headline numbers use.**
 - **`local`:** the normal GFS client policy (nearest replica first, which may be on the same machine). Reported separately: same-node transfers use loopback, not the NIC, so these numbers are not bounded by the network limit in the same way.
 
-## Workloads (paper §6.1)
+## Workloads (paper §6.1, §3.4, §6.2.4)
 
 | Benchmark | What each client does | Paper equivalent |
 |---|---|---|
@@ -42,6 +42,9 @@ Each client is a `gfs-bench` process, launched as its own `srun --overlap` step 
 | Write | Writes `WRITE_BYTES` (1 GiB) to its own new file in `OP_W` writes. The file is deleted after the run, and its chunks are reclaimed by heartbeat GC | §6.1.2: N clients write 1 GB each to distinct files in 1 MB writes |
 | Record append | N clients append 1 MiB records to one shared file, 512 MiB each. Afterwards the whole file is scanned: every record carries (writer, sequence, checksum), and each writer's records must all be present exactly once | §6.1.3: N clients append to a single file |
 | Recovery | 10 × 2 GiB files (20 GiB of data, 60 GiB of replicas). Then `kill -9` the chunkserver process on 2 of the 5 nodes, chosen at random, and time until every chunk has 3 live replicas again | §6.2.2: kill chunkservers, measure re-replication time |
+| Snapshot vs. copy | One client on the master's node, 8 × 2 GiB dataset (256 chunks). Per run, 3 runs: snapshot one file, snapshot the directory, copy the file through the client, copy the directory with 8 parallel file copies. Copies pipeline 8 MiB reads and writes | §3.4: snapshots are near-instant; data is copied only on the first write to a shared chunk |
+| Copy-on-write | 4 KiB write at the start of every chunk of 3 snapshotted files (96 chunks), each followed by a rewrite of the same bytes. The same for the first file's 3 client copies, which are not shared ("unshared first write") | §3.4: the first write to a shared chunk makes each replica copy the chunk locally |
+| Metadata | N clients (1–80) create, then stat, then delete empty files. One gRPC client per thread, min(N, 5) processes on the chunkserver nodes only. Each N runs once with a private directory per client and once with one shared directory. 20,000 ops per phase, at least 1,000 per client | §6.2.4: production masters saw 200–500 ops/s, and the master "can now easily support many thousands of file accesses per second" (no benchmark in §6.1) |
 
 - **File contents** are a pure function of (path, offset), using splitmix64. Any process can regenerate the expected bytes of any region.
 - **After each throughput job,** every byte of the dataset is read back and checked.
@@ -54,6 +57,14 @@ These are measured from the `watch` CSV, polled every 100 ms from the master nod
 - **detected → 3×:** until `under_replicated = 0`. This is the re-replication itself.
 - **kill → 3×:** the sum of the two. **This is the headline recovery number.**
 - Node clocks are NTP-synchronised. `chronyc` offsets are recorded in each job's `env.txt`.
+
+### Snapshot and metadata details
+
+- **Lease state.** Run 1's snapshots start right after the dataset is written, while leases from those writes are still live, so the master must revoke them first. Runs 2 and 3 come minutes later, after every 60 s lease has expired. The number of leases revoked is not recorded. The two cases are reported separately. A 1,000-file directory (one 4 KiB chunk each, all freshly leased) is snapshotted the same way: once with revocation, twice without.
+- **Content check after the snapshot runs.** Every byte of the patched source files must equal the original except the 4 KiB patch at each chunk start. Every snapshot must still hold the original bytes at those offsets. Afterwards, every byte of one directory snapshot (17.2 GB) is read back by 6 verifiers and compared with the original dataset.
+- **Metadata throughput** = total successful ops / (last client end − first client start), median of 3 runs. Latency percentiles are per process. A row reports the median process p50 and the worst process p99 (per-process percentiles cannot be merged exactly), and then the median of that over runs.
+- **Op log.** Every create and delete is logged and fsynced before it is acknowledged; concurrent mutations share an fsync (group commit). Stat is a read and is not logged. The master disk's synchronous 4 KiB write rate (`dd oflag=dsync`) is recorded in each metadata job.
+- With `--trash-retention 0`, a delete removes the file at once, rather than renaming it into `/.deleted`. Created files are empty (no chunks), so these phases involve the master only.
 
 ## Baselines measured in the same job
 

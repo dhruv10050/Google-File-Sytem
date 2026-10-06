@@ -2,6 +2,7 @@
 """Summarise benchmark jobs copied back from the cluster.
 
     bench/analyze.py --raw context/benchmarks/raw --throughput 103700 --recovery 103701 103702 103703
+    bench/analyze.py --meta 103710 --snapshot 103709
 
 Each job directory (from bench/slurm/*.sbatch) has raw/<tag>.csv files with
 one line per client: kind,id,host,bytes,start_ns,end_ns,extra. A run's
@@ -201,18 +202,171 @@ def recovery(raw, jobs, out):
             print(f"median {k}: {st.median(v):.1f} (n={len(v)}, min {min(v):.1f}, max {max(v):.1f})")
 
 
+def extras(r):
+    return dict(kv.split("=", 1) for kv in r[6].split(";") if "=" in kv) if len(r) > 6 else {}
+
+
+def meta(raw, jobs, out):
+    """Metadata ops/s: raw/meta-<op>-<layout>-n<N>-r<run>.csv, one line per
+    client process (each running `threads` clients); bytes = operations."""
+    runs = []
+    for job in jobs:
+        d = os.path.join(raw, job)
+        copy_raw(d, out, job)
+        for f in sorted(glob.glob(os.path.join(d, "raw", "meta-*.csv"))):
+            m = re.fullmatch(r"meta-(create|stat|delete)-(private|shared)-n(\d+)-r(\d+)", os.path.basename(f)[:-4])
+            if not m:
+                continue
+            rows = load(f)
+            op, layout, n, run = m.group(1), m.group(2), int(m.group(3)), int(m.group(4))
+            threads = sum(int(extras(r)["threads"]) for r in rows)
+            if threads != n:
+                print(f"skip {job}/{os.path.basename(f)}: {threads} of {n} clients finished")
+                continue
+            ops = sum(int(r[3]) for r in rows)
+            secs = (max(int(r[5]) for r in rows) - min(int(r[4]) for r in rows)) / 1e9
+            ex = [extras(r) for r in rows]
+            runs.append(dict(job=job, op=op, layout=layout, clients=n, run=run, ops=ops, seconds=secs, ops_per_s=ops / secs,
+                             errors=sum(int(e["errors"]) for e in ex),
+                             # per-process percentiles cannot be merged exactly:
+                             # median of the processes' p50s, worst process's p99
+                             p50_us=st.median(float(e["p50_us"]) for e in ex), p99_us=max(float(e["p99_us"]) for e in ex)))
+    with open(os.path.join(out, "meta_runs.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, list(runs[0].keys()))
+        w.writeheader()
+        for r in runs:
+            w.writerow({k: (f"{v:.2f}" if isinstance(v, float) else v) for k, v in r.items()})
+    groups = {}
+    for r in runs:
+        groups.setdefault((r["op"], r["layout"], r["clients"]), []).append(r)
+    order = {"create": 0, "stat": 1, "delete": 2}
+    summary = []
+    for (op, layout, n), v in sorted(groups.items(), key=lambda kv: (order[kv[0][0]], kv[0][1], kv[0][2])):
+        x = [r["ops_per_s"] for r in v]
+        summary.append(dict(op=op, layout=layout, clients=n, runs=len(v), median_ops_per_s=st.median(x), min_ops_per_s=min(x), max_ops_per_s=max(x),
+                            median_p50_us=st.median(r["p50_us"] for r in v), median_p99_us=st.median(r["p99_us"] for r in v),
+                            ops_per_run=st.median(r["ops"] for r in v), errors=sum(r["errors"] for r in v)))
+    with open(os.path.join(out, "meta_summary.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, list(summary[0].keys()))
+        w.writeheader()
+        for s in summary:
+            w.writerow({k: (f"{v:.1f}" if isinstance(v, float) else v) for k, v in s.items()})
+    print("\n| op | directory | clients | runs | median ops/s | min–max | p50 µs | p99 µs | ops/run | errors |")
+    print("|---|---|---:|---:|---:|---|---:|---:|---:|---:|")
+    for s in summary:
+        print(f"| {s['op']} | {s['layout']} | {s['clients']} | {s['runs']} | {s['median_ops_per_s']:.0f} | {s['min_ops_per_s']:.0f}–{s['max_ops_per_s']:.0f} | "
+              f"{s['median_p50_us']:.0f} | {s['median_p99_us']:.0f} | {s['ops_per_run']:.0f} | {s['errors']} |")
+    plot_meta(summary, out)
+
+
+def plot_meta(summary, out):
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+    fig, ax = plt.subplots(figsize=(6.5, 4.2))
+    for op, style in (("create", "o"), ("stat", "s"), ("delete", "^")):
+        for layout, ls in (("private", "-"), ("shared", "--")):
+            pts = sorted((s["clients"], s["median_ops_per_s"], s["min_ops_per_s"], s["max_ops_per_s"]) for s in summary if s["op"] == op and s["layout"] == layout)
+            if pts:
+                ax.errorbar([p[0] for p in pts], [p[1] for p in pts], yerr=[[p[1] - p[2] for p in pts], [p[3] - p[1] for p in pts]],
+                            fmt=style + ls, capsize=3, label=f"{op}, {layout} directory")
+    ax.set_xscale("log")
+    xs = sorted({s["clients"] for s in summary})
+    ax.set_xticks(xs)
+    ax.set_xticklabels([str(x) for x in xs])
+    ax.set_title("Master metadata operations (median of runs)")
+    ax.set_xlabel("concurrent clients")
+    ax.set_ylabel("operations / s")
+    ax.set_ylim(bottom=0)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(os.path.join(out, "meta.png"), dpi=150)
+    print(f"\nwrote {os.path.join(out, 'meta.png')}")
+
+
+def snapshot(raw, jobs, out):
+    """Snapshot vs. copy: raw/snapshot.csv from `gfs-bench snapshot`, plus
+    raw/verify-snap.csv (every byte of one directory snapshot re-read)."""
+    for job in jobs:
+        d = os.path.join(raw, job)
+        copy_raw(d, out, job)
+        rows = load(os.path.join(d, "raw", "snapshot.csv"))
+        # Run 1 snapshots start right after the dataset is written, while
+        # leases from those writes are live and must be revoked; later runs
+        # come minutes later, after every 60 s lease has expired. (The
+        # many-files rows say so themselves.)
+        for r in rows:
+            if r[0] == "snapshot" and "leases=" not in r[6]:
+                r[6] += ";leases=" + ("revoked" if r[1] == "1" else "none")
+        ms = lambda r: (int(r[5]) - int(r[4])) / 1e6
+        print(f"\njob {job}")
+        print("\n| operation | what | runs | data | median ms | min–max ms | MB/s |")
+        print("|---|---|---:|---:|---:|---|---:|")
+        summary = []
+        for kind, what in (("snapshot", "file"), ("snapshot", "dir"), ("snapshot", "many"), ("copy", "file"), ("copy", "dir")):
+            for leases in sorted({extras(r).get("leases", "") for r in rows if r[0] == kind and extras(r).get("what") == what}):
+                v = [r for r in rows if r[0] == kind and extras(r).get("what") == what and extras(r).get("leases", "") == leases]
+                t = [ms(r) for r in v]
+                b = int(v[0][3])
+                label = what + (f" (leases {leases})" if leases else "")
+                # a snapshot moves no data, so a data rate means nothing for it
+                rate = st.median(int(r[3]) / MB / (ms(r) / 1e3) for r in v) if kind == "copy" else ""
+                summary.append(dict(op=kind, what=label, runs=len(v), bytes=b, median_ms=st.median(t), min_ms=min(t), max_ms=max(t), MBps=rate))
+                print(f"| {kind} | {label} | {len(v)} | {b / 1e9:.2f} GB | {st.median(t):.1f} | {min(t):.1f}–{max(t):.1f} | {rate and f'{rate:.0f}'} |")
+        med = {(x["op"], x["what"]): x["median_ms"] for x in summary}
+        for what in ("file", "dir"):
+            for leases in ("revoked", "none"):
+                k = ("snapshot", f"{what} (leases {leases})")
+                if k in med and ("copy", what) in med:
+                    print(f"{what}: copy takes {med[('copy', what)] / med[k]:,.0f}x as long as a snapshot with leases {leases}")
+        print("\n| copy-on-write phase | writes | median ms | min–max ms |")
+        print("|---|---:|---:|---|")
+        for phase in ("shared-first", "rewrite", "unshared-first"):
+            t = [ms(r) for r in rows if r[0] == "cow" and extras(r).get("phase") == phase]
+            if t:
+                summary.append(dict(op="cow", what=phase, runs=len(t), bytes=4096, median_ms=st.median(t), min_ms=min(t), max_ms=max(t), MBps=""))
+                print(f"| {phase} | {len(t)} | {st.median(t):.1f} | {min(t):.1f}–{max(t):.1f} |")
+        for r in rows:
+            if r[0] == "check":
+                print(f"\ncontent check: {int(r[3]) / 1e9:.2f} GB read, {r[6]}")
+        vf = os.path.join(d, "raw", "verify-snap.csv")
+        if os.path.exists(vf):
+            ver = load(vf)
+            tot = {}
+            for r in ver:
+                for k, v in extras(r).items():
+                    tot[k] = tot.get(k, 0) + int(v)
+            print(f"verify of a directory snapshot: {len(ver)} verifiers, {sum(int(r[3]) for r in ver) / 1e9:.2f} GB, {tot}")
+        with open(os.path.join(out, "snapshot_summary.csv"), "w", newline="") as f:
+            w = csv.DictWriter(f, list(summary[0].keys()))
+            w.writeheader()
+            for s in summary:
+                w.writerow({k: (f"{v:.1f}" if isinstance(v, float) else v) for k, v in s.items()})
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", default="context/benchmarks/raw")
     ap.add_argument("--out", default="bench/results")
     ap.add_argument("--throughput", nargs="*", default=[])
     ap.add_argument("--recovery", nargs="*", default=[])
+    ap.add_argument("--meta", nargs="*", default=[])
+    ap.add_argument("--snapshot", nargs="*", default=[])
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     if a.throughput:
         throughput(a.raw, a.throughput, a.out)
     if a.recovery:
         recovery(a.raw, a.recovery, a.out)
+    if a.meta:
+        meta(a.raw, a.meta, a.out)
+    if a.snapshot:
+        snapshot(a.raw, a.snapshot, a.out)
 
 
 if __name__ == "__main__":
